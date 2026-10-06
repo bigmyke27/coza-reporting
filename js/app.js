@@ -1,8 +1,8 @@
-import { store, IS_DEMO } from './store.js?v=202610061256';
-import { CHURCH_NAME, APP_NAME } from './config.js?v=202610061256';
-import { REPORT_TYPES, REPORT_TYPE_MAP, ALL_REPORT_TYPE_KEYS, PILLARS, SOULS_MONTHLY_TARGET } from './templates.js?v=202610061256';
-import { computeScorecards, attendanceByReport } from './scoring.js?v=202610061256';
-import { esc, initials, fmtDate, lastWeekday, monthKey, monthRange, shiftMonth, monthLabel, pct, today, downloadFile, toCsv, parseDate } from './util.js?v=202610061256';
+import { store, IS_DEMO } from './store.js?v=202610061428';
+import { CHURCH_NAME, APP_NAME } from './config.js?v=202610061428';
+import { REPORT_TYPES, REPORT_TYPE_MAP, ALL_REPORT_TYPE_KEYS, PILLARS, SOULS_MONTHLY_TARGET } from './templates.js?v=202610061428';
+import { computeScorecards, attendanceByReport } from './scoring.js?v=202610061428';
+import { esc, initials, fmtDate, lastWeekday, monthKey, monthRange, shiftMonth, monthLabel, pct, today, downloadFile, toCsv, parseDate } from './util.js?v=202610061428';
 
 // ─── State ─────────────────────────────────────────────────────────────────
 
@@ -32,6 +32,7 @@ const ICONS = {
   print: '<path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/>',
   download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
   copy: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+  share: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/>',
   edit: '<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
 };
 const icon = (n) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`;
@@ -520,6 +521,8 @@ ACTIONS.startReport = async () => {
 
 async function viewEditor(arg) {
   let report;
+  const editing = arg?.startsWith('edit~');
+  if (editing) arg = arg.slice(5);
   if (arg?.startsWith('new~')) {
     const [, type, date] = arg.split('~');
     if (!S.scope) return ($content().innerHTML = needDept('Reports'));
@@ -533,7 +536,9 @@ async function viewEditor(arg) {
   const used = new Set(report.entries.map((e) => e.member_id));
   const members = allMembers.filter((m) => m.active || used.has(m.id));
 
-  const ed = (S.editor = { report, type, members, byId: new Map(members.map((m) => [m.id, m])), assign: {}, counts: {}, notes: { ...report.notes }, active: {}, search: {}, dirty: false });
+  if (report.id && report.status === 'submitted' && !editing) return viewReportDoc(report, type, allMembers);
+
+  const ed = (S.editor = { report, type, members, byId: new Map(members.map((m) => [m.id, m])), assign: {}, counts: {}, notes: { ...report.notes }, active: {}, search: {}, open: {}, dirty: false });
   for (const s of type.sections) {
     if (s.kind === 'assign') {
       ed.assign[s.key] = new Map();
@@ -548,17 +553,22 @@ async function viewEditor(arg) {
   }
 
   const d = dept(report.department_id);
+  const submitted = report.status === 'submitted';
   $content().innerHTML = `
-    <div class="page-head"><div><h1>${esc(type.name)}</h1><p>${esc(d?.name ?? '')} · ${fmtDate(report.service_date)} ${report.status === 'submitted' ? '<span class="pill good">Submitted</span>' : '<span class="pill warn">Draft</span>'}</p></div>
-      <div class="row no-print">${report.id ? `<button class="btn" data-action="copyText">${icon('copy')}Copy for WhatsApp</button><button class="btn" onclick="print()">${icon('print')}Print</button>` : ''}</div></div>
-    <p class="muted small no-print" style="margin-top:-8px">Tap a category, then tap names to drop them in. A name can only be in one category per section — once placed it leaves the list. Tap × to move someone back.</p>
+    <div class="page-head"><div><h1>${submitted ? 'Editing: ' : ''}${esc(type.name)}</h1><p>${esc(d?.name ?? '')} · ${fmtDate(report.service_date)} ${submitted ? '<span class="pill good">Submitted</span>' : report.id ? '<span class="pill warn">Draft</span>' : '<span class="pill">New</span>'}</p></div></div>
+    <p class="muted small" style="margin-top:-8px">Tap a category, then tap names to drop them in. A name can only be in one category per section — once placed it leaves the list. Tap × to move someone back.</p>
     ${members.length ? '' : `<div class="card empty"><h3>No members yet</h3><p>Add your department's members first.</p><a class="btn primary" href="#/members">Add members</a></div>`}
     <div id="sections">${type.sections.map((s, i) => `<div class="section" id="sec-${s.key}">${sectionHtml(s, i)}</div>`).join('')}</div>
-    <div class="save-bar no-print">
+    <div class="save-bar">
       <div class="progress" id="progress">${progressHtml()}</div><div class="spacer"></div>
-      ${report.id ? `<button class="btn ghost danger" data-action="deleteReport">Delete</button>` : ''}
-      <button class="btn" data-action="saveReport" data-status="draft">Save draft</button>
-      <button class="btn primary" data-action="saveReport" data-status="submitted">${report.status === 'submitted' ? 'Update report' : 'Submit report'}</button>
+      ${
+        submitted
+          ? `<a class="btn ghost" href="#/report/${report.id}">Cancel</a><button class="btn ghost danger" data-action="deleteReport">Delete</button>
+             <button class="btn primary" data-action="saveReport" data-status="submitted">Save changes</button>`
+          : `${report.id ? `<button class="btn ghost danger" data-action="deleteReport">Delete</button>` : ''}
+             <button class="btn" data-action="saveReport" data-status="draft">Save draft</button>
+             <button class="btn primary" data-action="saveReport" data-status="submitted">Submit report</button>`
+      }
     </div>`;
 }
 
@@ -593,12 +603,22 @@ function sectionHtml(s, i) {
   const shown = pool.filter((m) => !q || m.full_name.toLowerCase().includes(q));
   const count = (k) => [...map.values()].filter((v) => v.category === k).length;
   const fillRest = s.fillRest && s.categories.find((c) => c.key === s.fillRest);
+  if (s.optional && !ed.open[s.key]) {
+    const list = [...map.entries()];
+    return `${head}<div class="section-body">
+      ${
+        list.length
+          ? `<ol class="plain-list">${list.map(([id, v]) => `<li>${esc(ed.byId.get(id)?.full_name ?? '?')}${v.remark ? ` <span class="muted">— ${esc(v.remark)}</span>` : ''}</li>`).join('')}</ol>`
+          : `<p class="small muted" style="margin:0 0 10px">Nothing recorded — the report will say “${esc(s.emptyText)}”.</p>`
+      }
+      <button class="btn sm" data-action="openPool" data-sec="${s.key}">${icon('plus')}${list.length ? 'Add or change names' : 'Add a name'}</button></div>`;
+  }
   return `${head}<div class="section-body">
     ${s.categories.length > 1 ? `<div class="cat-tabs" role="tablist">${s.categories.map((c) => `<button class="cat-tab ${c.key === activeCat.key ? 'on' : ''}" style="--tone:var(--t-${c.tone})" data-action="cat" data-sec="${s.key}" data-cat="${c.key}" role="tab" aria-selected="${c.key === activeCat.key}"><span class="dot" style="background:var(--t-${c.tone})"></span>${esc(c.label)}<span class="c num">${count(c.key)}</span></button>`).join('')}</div>` : ''}
     <div class="pool-head"><span class="hint">${pool.length ? `Tap to add to <b>${esc(activeCat.label)}</b> · ${pool.length} not yet placed` : ''}</span>
       <span class="row">${fillRest && pool.length ? `<button class="btn sm" data-action="fillRest" data-sec="${s.key}">Put remaining ${pool.length} in “${esc(fillRest.label)}”</button>` : ''}${pool.length > 8 ? `<input class="search-mini" placeholder="Search names" data-input="search" data-sec="${s.key}" value="${esc(ed.search[s.key])}" aria-label="Search names">` : ''}</span></div>
     <div class="pool">${pool.length ? shown.map((m) => `<button class="chip" data-action="assign" data-sec="${s.key}" data-id="${m.id}">${esc(m.full_name)}</button>`).join('') || '<span class="muted small">No match</span>' : `<span class="done">✓ Everyone is placed${s.optional ? '' : ''}</span>`}${!pool.length ? '' : ''}</div>
-    ${s.optional && !map.size ? `<p class="small muted" style="margin:10px 0 0">Leave empty if none — the report will say “${esc(s.emptyText)}”.</p>` : ''}
+    ${s.optional ? `<p class="small muted" style="margin:10px 0 0">${map.size ? '' : `Leave empty if none — the report will say “${esc(s.emptyText)}”. `}<button class="linkish" data-action="closePool" data-sec="${s.key}">Done</button></p>` : ''}
     <div class="assigned">${s.categories
       .map((c) => {
         const list = [...map.entries()].filter(([, v]) => v.category === c.key);
@@ -624,6 +644,14 @@ function rerender(secKey, focusSearch = false) {
 }
 const markDirty = () => (S.editor.dirty = true);
 
+ACTIONS.openPool = (el) => {
+  S.editor.open[el.dataset.sec] = true;
+  rerender(el.dataset.sec);
+};
+ACTIONS.closePool = (el) => {
+  S.editor.open[el.dataset.sec] = false;
+  rerender(el.dataset.sec);
+};
 ACTIONS.cat = (el) => {
   S.editor.active[el.dataset.sec] = el.dataset.cat;
   rerender(el.dataset.sec);
@@ -689,8 +717,9 @@ ACTIONS.saveReport = async (el) => {
   try {
     const id = await store.saveReport({ id: ed.report.id, department_id: ed.report.department_id, report_type: ed.report.report_type, service_date: ed.report.service_date, notes, status }, editorEntries());
     ed.dirty = false;
-    toast(status === 'submitted' ? 'Report submitted' : 'Draft saved');
-    if (!ed.report.id) location.hash = `#/report/${id}`;
+    toast(status === 'submitted' ? (ed.report.status === 'submitted' ? 'Changes saved' : 'Report submitted') : 'Draft saved');
+    S.editor = null;
+    if (status === 'submitted' || !ed.report.id) location.hash = `#/report/${id}`;
     else viewEditor(id);
   } finally {
     el.disabled = false;
@@ -698,14 +727,102 @@ ACTIONS.saveReport = async (el) => {
 };
 ACTIONS.deleteReport = () =>
   confirmBox('Delete this report?', 'This removes the report and everything recorded in it.', 'Delete', async () => {
-    await store.deleteReport(S.editor.report.id);
+    await store.deleteReport(S.editor?.report.id ?? S.doc.report.id);
     S.editor = null;
     toast('Report deleted');
     location.hash = '#/reports';
   });
+// ─── Finished report: one model feeds the screen view, PDF and WhatsApp text ─
+
+// Structured, display-ready version of a report (only what was recorded).
+function reportModel(report, type, byId, entries = report.entries, notes = report.notes ?? {}) {
+  const d = dept(report.department_id);
+  const nameOf = (id) => byId.get(id)?.full_name ?? 'Removed member';
+  const sections = type.sections.map((s, i) => {
+    const list = entries.filter((e) => e.section === s.key);
+    const sec = { n: i + 1, title: s.title, blocks: [] };
+    if (s.kind === 'text') sec.text = (notes[s.key] || '').trim() || s.placeholder;
+    else if (s.kind === 'counts') {
+      sec.blocks.push({ items: list.map((e) => ({ name: nameOf(e.member_id), extra: String(e.value) })), empty: s.emptyText });
+      if (list.length) sec.total = `Total: ${list.reduce((a, e) => a + Number(e.value), 0)} ${s.unit}`;
+    } else if (s.categories.length === 1) sec.blocks.push({ items: list.map((e) => ({ name: nameOf(e.member_id), extra: e.remark })), empty: s.emptyText ?? 'NONE' });
+    else
+      s.categories.forEach((c, ci) =>
+        sec.blocks.push({ label: `${'ABCDEFGHIJ'[ci]}. ${c.label}`, tone: c.tone, items: list.filter((e) => e.category === c.key).map((e) => ({ name: nameOf(e.member_id), extra: e.remark })), empty: 'NONE' })
+      );
+    return sec;
+  });
+  return {
+    title: `${CHURCH_NAME} ${(d?.name ?? '').toUpperCase()} - ${type.heading}`,
+    sub: type.subheading,
+    service: type.service,
+    date: fmtDate(report.service_date, { day: '2-digit', month: '2-digit', year: 'numeric' }),
+    longDate: fmtDate(report.service_date),
+    dept: d?.name ?? '',
+    typeName: type.name,
+    sections,
+  };
+}
+
+// WhatsApp-ready text in the Excel template's layout.
+function reportText(m) {
+  const L = [`*${m.title}*`];
+  if (m.sub) L.push(m.sub);
+  if (m.service) L.push(`SERVICE: ${m.service}`);
+  L.push(`DATE: ${m.date}`, '');
+  for (const s of m.sections) {
+    L.push(`*${s.n}. ${s.title.toUpperCase()}*`);
+    if (s.text != null) L.push(s.text.toUpperCase());
+    for (const b of s.blocks) {
+      if (b.label) L.push(b.label.toUpperCase());
+      if (!b.items.length) L.push(b.empty);
+      b.items.forEach((it, n) => L.push(`${n + 1}. ${it.name.toUpperCase()}${it.extra ? ' - ' + it.extra.toUpperCase() : ''}`));
+    }
+    if (s.total) L.push(s.total.toUpperCase());
+    L.push('');
+  }
+  L.push('*END OF REPORT*');
+  return L.join('\n');
+}
+
+function reportDocHtml(m) {
+  return `<article class="doc">
+    <header class="doc-head"><img src="assets/coza-logo-dark.png" alt="${esc(CHURCH_NAME)}"><div><h2>${esc(m.title)}</h2>
+      ${m.sub ? `<div class="doc-meta">${esc(m.sub)}</div>` : ''}<div class="doc-meta">${m.service ? `Service: <b>${esc(m.service)}</b> · ` : ''}Date: <b>${esc(m.longDate)}</b></div></div></header>
+    ${m.sections
+      .map(
+        (s) => `<section class="doc-sec"><h3><span class="sn">${s.n}</span>${esc(s.title)}</h3>
+        ${s.text != null ? `<p class="doc-text">${esc(s.text)}</p>` : ''}
+        ${s.blocks
+          .map(
+            (b) => `<div class="doc-block">${b.label ? `<div class="doc-label">${b.tone ? `<i class="dot" style="background:var(--t-${b.tone})"></i>` : ''}${esc(b.label)} <span class="muted">(${b.items.length})</span></div>` : ''}
+            ${b.items.length ? `<ol>${b.items.map((it) => `<li>${esc(it.name)}${it.extra ? ` <span class="muted">— ${esc(it.extra)}</span>` : ''}</li>`).join('')}</ol>` : `<div class="doc-none">${esc(b.empty)}</div>`}</div>`
+          )
+          .join('')}
+        ${s.total ? `<div class="doc-total">${esc(s.total)}</div>` : ''}</section>`
+      )
+      .join('')}
+    <footer class="doc-end">END OF REPORT</footer></article>`;
+}
+
+function viewReportDoc(report, type, members) {
+  const byId = new Map(members.map((m) => [m.id, m]));
+  const m = reportModel(report, type, byId);
+  S.doc = { report, model: m };
+  const canShare = !!(navigator.canShare && window.File && navigator.canShare({ files: [new File([''], 'x.pdf', { type: 'application/pdf' })] }));
+  $content().innerHTML = `
+    <div class="page-head no-print"><div><a href="#/reports" class="small">← All reports</a><h1 style="margin-top:4px">${esc(type.name)}</h1><p>${esc(m.dept)} · ${m.longDate} <span class="pill good">Submitted</span></p></div>
+      <div class="row">
+        ${canShare ? `<button class="btn primary" data-action="sharePdf">${icon('share')}Share PDF</button>` : ''}
+        <button class="btn ${canShare ? '' : 'primary'}" data-action="downloadPdf">${icon('download')}Download PDF</button>
+        <button class="btn" data-action="copyText">${icon('copy')}Copy for WhatsApp</button>
+        <a class="btn" href="#/report/edit~${report.id}">${icon('edit')}Edit report</a>
+      </div></div>
+    ${reportDocHtml(m)}`;
+}
+
 ACTIONS.copyText = async () => {
-  const ed = S.editor;
-  const text = reportText(ed.report.department_id, ed.type, ed.report.service_date, editorEntries(), ed.notes, ed.byId);
+  const text = reportText(S.doc.model);
   try {
     await navigator.clipboard.writeText(text);
     toast('Copied — paste it into WhatsApp');
@@ -714,36 +831,167 @@ ACTIONS.copyText = async () => {
   }
 };
 
-// Plain-text report in the same layout as the Excel template, WhatsApp-ready.
-function reportText(deptId, type, date, entries, notes, byId) {
-  const dname = (dept(deptId)?.name ?? '').toUpperCase();
-  const L = [`*${CHURCH_NAME} ${dname} - ${type.heading}*`];
-  if (type.subheading) L.push(type.subheading);
-  if (type.service) L.push(`SERVICE: ${type.service}`);
-  L.push(`DATE: ${fmtDate(date, { day: '2-digit', month: '2-digit', year: 'numeric' })}`, '');
-  const letters = 'ABCDEFGHIJ';
-  type.sections.forEach((s, i) => {
-    L.push(`*${i + 1}. ${s.title.toUpperCase()}*`);
-    const list = entries.filter((e) => e.section === s.key);
-    if (s.kind === 'text') L.push((notes[s.key] || s.placeholder).trim().toUpperCase());
-    else if (s.kind === 'counts') {
-      if (!list.length) L.push(s.emptyText);
-      else list.forEach((e, n) => L.push(`${n + 1}. ${byId.get(e.member_id)?.full_name.toUpperCase()} - ${e.value}`)), L.push(`TOTAL: ${list.reduce((a, e) => a + Number(e.value), 0)}`);
-    } else if (s.categories.length === 1) {
-      if (!list.length) L.push(s.emptyText ?? 'NONE');
-      list.forEach((e, n) => L.push(`${n + 1}. ${byId.get(e.member_id)?.full_name.toUpperCase()}${e.remark ? ' - ' + e.remark.toUpperCase() : ''}`));
-    } else
-      s.categories.forEach((c, ci) => {
-        L.push(`${letters[ci]}. ${c.label.toUpperCase()}`);
-        const sub = list.filter((e) => e.category === c.key);
-        if (!sub.length) L.push('NONE');
-        sub.forEach((e, n) => L.push(`${n + 1}. ${byId.get(e.member_id)?.full_name.toUpperCase()}${e.remark ? ' - ' + e.remark.toUpperCase() : ''}`));
-      });
-    L.push('');
-  });
-  L.push('*END OF REPORT*');
-  return L.join('\n');
+// ─── PDF ───────────────────────────────────────────────────────────────────
+
+let jsPdfLoader;
+const loadJsPdf = () =>
+  (jsPdfLoader ??= new Promise((resolve, reject) => {
+    const sc = document.createElement('script');
+    sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    sc.onload = () => resolve(window.jspdf.jsPDF);
+    sc.onerror = () => {
+      jsPdfLoader = null;
+      reject(new Error('Could not load the PDF tool — check your internet connection'));
+    };
+    document.head.appendChild(sc);
+  }));
+const imageData = (url) =>
+  fetch(url)
+    .then((r) => r.blob())
+    .then((b) => new Promise((res) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(b); }))
+    .catch(() => null);
+
+// Plain Helvetica can't draw every character; keep text to what it can.
+const pdfSafe = (t) => String(t ?? '').replace(/[—–]/g, '-').replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/[^\x20-\x7E -ÿ]/g, '');
+
+async function buildPdf(m) {
+  const [JsPDF, logo] = await Promise.all([loadJsPdf(), imageData('assets/coza-logo-dark.png')]);
+  const pdf = new JsPDF({ unit: 'mm', format: 'a4' });
+  const W = 210, H = 297, M = 16, colGap = 8, colW = (W - 2 * M - colGap) / 2;
+  const PURPLE = [58, 18, 87], INK = [23, 18, 28], MUTED = [120, 112, 130];
+  let y = M;
+
+  // Header
+  if (logo) pdf.addImage(logo, 'PNG', M, y, 20, 20, 'logo', 'FAST');
+  const tx = M + (logo ? 25 : 0);
+  pdf.setTextColor(...PURPLE).setFont('helvetica', 'bold').setFontSize(14);
+  const titleLines = pdf.splitTextToSize(pdfSafe(m.title), W - tx - M);
+  pdf.text(titleLines, tx, y + 6);
+  let hy = y + 6 + titleLines.length * 6;
+  pdf.setFont('helvetica', 'normal').setFontSize(10).setTextColor(...INK);
+  if (m.sub) (pdf.text(pdfSafe(m.sub), tx, hy), (hy += 5));
+  pdf.text(pdfSafe(`${m.service ? `Service: ${m.service}    ` : ''}Date: ${m.longDate}`), tx, hy);
+  y = Math.max(y + 22, hy + 4);
+  pdf.setDrawColor(...PURPLE).setLineWidth(0.8).line(M, y, W - M, y);
+  pdf.setDrawColor(232, 51, 111).setLineWidth(0.8).line(M, y + 1.4, M + 60, y + 1.4);
+  y += 9;
+
+  const room = (h) => {
+    if (y + h > H - 18) {
+      pdf.addPage();
+      y = M;
+    }
+  };
+
+  for (const s of m.sections) {
+    room(16);
+    pdf.setFillColor(...PURPLE).circle(M + 2.6, y - 1.3, 2.6, 'F');
+    pdf.setTextColor(255, 255, 255).setFont('helvetica', 'bold').setFontSize(8).text(String(s.n), M + 2.6, y - 0.2, { align: 'center' });
+    pdf.setTextColor(...PURPLE).setFontSize(11).text(pdfSafe(s.title.toUpperCase()), M + 7, y);
+    y += 6;
+
+    if (s.text != null) {
+      pdf.setTextColor(...INK).setFont('helvetica', 'normal').setFontSize(10);
+      for (const line of pdf.splitTextToSize(pdfSafe(s.text), W - 2 * M - 7)) {
+        room(5);
+        pdf.text(line, M + 7, y);
+        y += 5;
+      }
+    }
+    for (const b of s.blocks) {
+      if (b.label) {
+        room(11);
+        pdf.setTextColor(...INK).setFont('helvetica', 'bold').setFontSize(9.5).text(pdfSafe(`${b.label.toUpperCase()}  (${b.items.length})`), M + 7, y);
+        y += 5;
+      }
+      pdf.setFont('helvetica', 'normal').setFontSize(10);
+      if (!b.items.length) {
+        room(5);
+        pdf.setTextColor(...MUTED).text(pdfSafe(b.empty), M + 7, y);
+        y += 6;
+        continue;
+      }
+      // Names in two columns, numbered down the left column first.
+      const lines = b.items.map((it, n) => pdf.splitTextToSize(pdfSafe(`${n + 1}. ${it.name}${it.extra ? ' - ' + it.extra : ''}`), colW - 7));
+      let i = 0;
+      while (i < lines.length) {
+        const avail = Math.max(1, Math.floor((H - 18 - y) / 5));
+        const remaining = lines.slice(i);
+        let perCol = Math.ceil(remaining.reduce((a, l) => a + l.length, 0) / 2);
+        if (perCol > avail) perCol = avail;
+        const cols = [[], []];
+        let c = 0, used = 0;
+        while (i < lines.length && c < 2) {
+          const h = lines[i].length;
+          if (used + h > perCol && used > 0) {
+            c += 1;
+            used = 0;
+            continue;
+          }
+          cols[c].push(lines[i]);
+          used += h;
+          i += 1;
+        }
+        pdf.setTextColor(...INK);
+        let maxRows = 0;
+        cols.forEach((col, ci) => {
+          let rows = 0;
+          col.forEach((l) => {
+            pdf.text(l, M + 7 + ci * (colW + colGap), y + rows * 5);
+            rows += l.length;
+          });
+          maxRows = Math.max(maxRows, rows);
+        });
+        y += maxRows * 5;
+        if (i < lines.length) room(999);
+      }
+      y += 1.5;
+    }
+    if (s.total) {
+      room(5);
+      pdf.setFont('helvetica', 'bold').setFontSize(9.5).setTextColor(...INK).text(pdfSafe(s.total), M + 7, y);
+      y += 5;
+    }
+    y += 4;
+  }
+  room(10);
+  pdf.setFont('helvetica', 'bold').setFontSize(10).setTextColor(...PURPLE).text('END OF REPORT', W / 2, y + 2, { align: 'center' });
+
+  const pages = pdf.getNumberOfPages();
+  for (let p = 1; p <= pages; p++) {
+    pdf.setPage(p);
+    pdf.setFont('helvetica', 'normal').setFontSize(8).setTextColor(...MUTED);
+    pdf.text(pdfSafe(`${CHURCH_NAME} ${m.dept} · ${m.typeName} · ${m.longDate}`), M, H - 9);
+    pdf.text(`Page ${p} of ${pages}`, W - M, H - 9, { align: 'right' });
+  }
+  const name = pdfSafe(`${m.dept} - ${m.typeName} - ${S.doc.report.service_date}.pdf`).replace(/[\\/:*?"<>|]/g, '');
+  return { blob: pdf.output('blob'), name };
 }
+
+ACTIONS.downloadPdf = async (el) => {
+  el.disabled = true;
+  try {
+    const { blob, name } = await buildPdf(S.doc.model);
+    downloadFile(name, blob, 'application/pdf');
+    toast('PDF downloaded');
+  } finally {
+    el.disabled = false;
+  }
+};
+ACTIONS.sharePdf = async (el) => {
+  el.disabled = true;
+  try {
+    const { blob, name } = await buildPdf(S.doc.model);
+    const file = new File([blob], name, { type: 'application/pdf' });
+    try {
+      await navigator.share({ files: [file], title: name.replace(/\.pdf$/, '') });
+    } catch (e) {
+      if (e.name !== 'AbortError') downloadFile(name, blob, 'application/pdf');
+    }
+  } finally {
+    el.disabled = false;
+  }
+};
 
 // ─── Reports list ──────────────────────────────────────────────────────────
 

@@ -203,6 +203,26 @@ td.r, th.r { text-align: right; }
 .progress { display: flex; align-items: center; gap: 10px; font-size: 0.86rem; color: var(--ink-2); }
 .progress .mini-bar { width: 120px; }
 
+/* ── Finished report document ───────────────────────── */
+.doc { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 28px 32px; max-width: 860px; }
+.doc-head { display: flex; gap: 16px; align-items: center; padding-bottom: 16px; border-bottom: 3px solid var(--brand); margin-bottom: 8px; }
+.doc-head img { width: 64px; height: 64px; flex: none; }
+.doc-head h2 { color: var(--brand); font-size: 1.15rem; letter-spacing: 0.01em; }
+.doc-meta { color: var(--ink-2); font-size: 0.9rem; margin-top: 2px; }
+.doc-sec { padding: 16px 0; border-bottom: 1px solid var(--line); break-inside: avoid; }
+.doc-sec h3 { display: flex; align-items: center; gap: 10px; text-transform: uppercase; font-size: 0.86rem; letter-spacing: 0.04em; color: var(--brand); margin-bottom: 10px; }
+.doc-sec .sn { width: 22px; height: 22px; border-radius: 50%; background: var(--brand); color: #fff; font-size: 0.72rem; display: grid; place-items: center; flex: none; }
+.doc-block { margin: 0 0 10px 32px; }
+.doc-label { font-weight: 700; font-size: 0.86rem; display: flex; align-items: center; gap: 7px; margin-bottom: 4px; }
+.doc-block ol { margin: 0; padding-left: 22px; columns: 2; column-gap: 28px; font-size: 0.92rem; }
+.doc-block li { break-inside: avoid; padding: 1px 0; }
+.doc-none, .doc-text { color: var(--muted); font-size: 0.9rem; margin: 0 0 0 32px; white-space: pre-wrap; }
+.doc-block .doc-none { margin: 0; }
+.doc-text { color: var(--ink); }
+.doc-total { margin-left: 32px; font-weight: 700; font-size: 0.88rem; }
+.doc-end { text-align: center; font-weight: 800; color: var(--brand); letter-spacing: 0.08em; padding-top: 18px; font-size: 0.85rem; }
+.plain-list { margin: 0 0 10px; padding-left: 22px; font-size: 0.92rem; }
+
 /* ── Modal & toast ──────────────────────────────────────── */
 .modal-back { position: fixed; inset: 0; background: rgba(23, 18, 28, 0.45); display: grid; place-items: center; z-index: 100; padding: 16px; }
 .modal { background: var(--surface); border-radius: 16px; width: min(560px, 100%); max-height: 90vh; overflow: auto; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25); }
@@ -309,6 +329,12 @@ td.r, th.r { text-align: right; }
   .sc-body { grid-template-columns: 1fr; padding: 24px 18px; }
   .sc-center { grid-row: auto; }
   .sc-foot { grid-template-columns: 1fr; }
+  .doc { padding: 18px 16px; }
+  .page-head > .row { width: 100%; }
+  .page-head > .row > .btn { flex: 1 1 auto; padding: 9px 12px; }
+  .doc-block, .doc-text, .doc-none, .doc-total { margin-left: 0; }
+  .doc-block ol { columns: 1; }
+  .doc-head img { width: 48px; height: 48px; }
   .sc-top { padding: 24px 20px; }
   .sc-top h2 { font-size: 1.6rem; padding-right: 70px; }
 }
@@ -319,6 +345,7 @@ td.r, th.r { text-align: right; }
   .sidebar, .topbar, .bottom-nav, .demo-bar, .save-bar, .no-print { display: none !important; }
   .shell { display: block; }
   .content { padding: 0; max-width: none; }
+  .doc { border: 0; box-shadow: none; padding: 0; max-width: none; }
   .scorecard { box-shadow: none; width: 100%; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .card, .section, .stat { box-shadow: none; break-inside: avoid; }
   .print-page { break-after: page; }
