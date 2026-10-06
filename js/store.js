@@ -1,9 +1,9 @@
 // Data layer. Two interchangeable backends with the same methods:
 //   SupabaseStore — the live database (when js/config.js has keys)
 //   DemoStore     — sample data kept in this browser's localStorage
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js?v=202610061428';
-import { ALL_REPORT_TYPE_KEYS, REPORT_TYPE_MAP } from './templates.js?v=202610061428';
-import { isoDate, addDays } from './util.js?v=202610061428';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js?v=202610061436';
+import { ALL_REPORT_TYPE_KEYS, REPORT_TYPE_MAP } from './templates.js?v=202610061436';
+import { isoDate, addDays } from './util.js?v=202610061436';
 
 export const IS_DEMO = !SUPABASE_URL || !SUPABASE_ANON_KEY;
 
@@ -122,7 +122,8 @@ class SupabaseStore {
     if (to) q = q.lte('due_date', to);
     return this.q(q);
   }
-  async saveTask(task, memberIds) {
+  // submittedIds (optional): who has submitted — everyone else is marked not submitted.
+  async saveTask(task, memberIds, submittedIds) {
     const row = { department_id: task.department_id, title: task.title, details: task.details || null, due_date: task.due_date };
     let id = task.id;
     if (id) await this.q(this.sb.from('tasks').update(row).eq('id', id));
@@ -134,6 +135,14 @@ class SupabaseStore {
     const add = [...want].filter((m) => !have.has(m)).map((member_id) => ({ task_id: id, member_id }));
     if (remove.length) await this.q(this.sb.from('task_assignments').delete().eq('task_id', id).in('member_id', remove));
     if (add.length) await this.q(this.sb.from('task_assignments').insert(add));
+    if (submittedIds) {
+      const yes = [...submittedIds];
+      const now = new Date().toISOString();
+      if (yes.length) await this.q(this.sb.from('task_assignments').update({ done: true, done_at: now }).eq('task_id', id).eq('done', false).in('member_id', yes));
+      let no = this.sb.from('task_assignments').update({ done: false, done_at: null }).eq('task_id', id).eq('done', true);
+      if (yes.length) no = no.not('member_id', 'in', `(${yes.join(',')})`);
+      await this.q(no);
+    }
     return id;
   }
   setTaskDone(taskId, memberId, done) {
@@ -275,7 +284,7 @@ class DemoStore {
       .filter((t) => (!deptId || t.department_id === deptId) && (!from || t.due_date >= from) && (!to || t.due_date <= to))
       .sort((a, b) => b.due_date.localeCompare(a.due_date));
   }
-  async saveTask(task, memberIds) {
+  async saveTask(task, memberIds, submittedIds) {
     let t = task.id && this.db.tasks.find((x) => x.id === task.id);
     if (!t) {
       t = { id: uid(), assignments: [], created_at: new Date().toISOString() };
@@ -284,6 +293,12 @@ class DemoStore {
     Object.assign(t, { department_id: task.department_id, title: task.title, details: task.details, due_date: task.due_date });
     const prev = new Map(t.assignments.map((a) => [a.member_id, a]));
     t.assignments = memberIds.map((member_id) => prev.get(member_id) ?? { task_id: t.id, member_id, done: false, done_at: null });
+    if (submittedIds) {
+      const yes = new Set(submittedIds);
+      t.assignments.forEach((a) => {
+        if (a.done !== yes.has(a.member_id)) Object.assign(a, { done: yes.has(a.member_id), done_at: yes.has(a.member_id) ? new Date().toISOString() : null });
+      });
+    }
     this.persist();
     return t.id;
   }

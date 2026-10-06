@@ -1,8 +1,8 @@
-import { store, IS_DEMO } from './store.js?v=202610061428';
-import { CHURCH_NAME, APP_NAME } from './config.js?v=202610061428';
-import { REPORT_TYPES, REPORT_TYPE_MAP, ALL_REPORT_TYPE_KEYS, PILLARS, SOULS_MONTHLY_TARGET } from './templates.js?v=202610061428';
-import { computeScorecards, attendanceByReport } from './scoring.js?v=202610061428';
-import { esc, initials, fmtDate, lastWeekday, monthKey, monthRange, shiftMonth, monthLabel, pct, today, downloadFile, toCsv, parseDate } from './util.js?v=202610061428';
+import { store, IS_DEMO } from './store.js?v=202610061436';
+import { CHURCH_NAME, APP_NAME } from './config.js?v=202610061436';
+import { REPORT_TYPES, REPORT_TYPE_MAP, ALL_REPORT_TYPE_KEYS, PILLARS, SOULS_MONTHLY_TARGET } from './templates.js?v=202610061436';
+import { computeScorecards, attendanceByReport } from './scoring.js?v=202610061436';
+import { esc, initials, fmtDate, lastWeekday, monthKey, monthRange, shiftMonth, monthLabel, pct, today, downloadFile, toCsv, parseDate } from './util.js?v=202610061436';
 
 // ─── State ─────────────────────────────────────────────────────────────────
 
@@ -33,6 +33,9 @@ const ICONS = {
   download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
   copy: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
   share: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/>',
+  eye: '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
+  eyeOff: '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24M1 1l22 22"/>',
+  close: '<path d="M18 6 6 18M6 6l12 12"/>',
   edit: '<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
 };
 const icon = (n) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`;
@@ -118,7 +121,7 @@ function renderAuth(mode = 'signin', error = '') {
       <h2>${mode === 'signup' ? 'Create an admin account' : mode === 'reset' ? 'Reset your password' : 'Sign in'}</h2>
       ${mode === 'signup' ? '<div class="field"><label for="fn">Full name</label><input class="input" id="fn" required autocomplete="name"></div>' : ''}
       <div class="field"><label for="em">Email</label><input class="input" id="em" type="email" required autocomplete="email"></div>
-      ${mode !== 'reset' ? `<div class="field"><label for="pw">Password</label><input class="input" id="pw" type="password" required minlength="8" autocomplete="${mode === 'signup' ? 'new-password' : 'current-password'}"></div>` : ''}
+      ${mode !== 'reset' ? `<div class="field"><label for="pw">Password</label><div class="pw-wrap"><input class="input" id="pw" type="password" required minlength="8" autocomplete="${mode === 'signup' ? 'new-password' : 'current-password'}"><button type="button" class="pw-eye" id="pwEye" aria-label="Show password" aria-pressed="false">${icon('eye')}</button></div></div>` : ''}
       ${error ? `<div class="err">${esc(error)}</div>` : ''}
       <button class="btn primary" type="submit">${mode === 'signup' ? 'Create account' : mode === 'reset' ? 'Send reset link' : 'Sign in'}</button>
       <div class="small muted">${
@@ -130,6 +133,17 @@ function renderAuth(mode = 'signin', error = '') {
     </form></div></div>`;
   const form = document.getElementById('authForm');
   form.querySelectorAll('[data-mode]').forEach((b) => (b.onclick = () => renderAuth(b.dataset.mode)));
+  const eye = form.querySelector('#pwEye');
+  if (eye)
+    eye.onclick = () => {
+      const pw = form.querySelector('#pw');
+      const show = pw.type === 'password';
+      pw.type = show ? 'text' : 'password';
+      eye.innerHTML = icon(show ? 'eyeOff' : 'eye');
+      eye.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+      eye.setAttribute('aria-pressed', String(show));
+      pw.focus();
+    };
   form.onsubmit = async (e) => {
     e.preventDefault();
     const email = form.querySelector('#em').value.trim();
@@ -350,7 +364,7 @@ async function viewDashboard() {
       <div class="stat"><div class="k">Service attendance</div><div class="v num">${att.attendanceRate ?? '—'}${att.attendanceRate != null ? '%' : ''}</div><div class="d">present ÷ (present + unexcused absent)</div></div>
       <div class="stat"><div class="k">Arrived early</div><div class="v num">${att.onTimeRate ?? '—'}${att.onTimeRate != null ? '%' : ''}</div><div class="d">of those present</div></div>
       <div class="stat"><div class="k">Absent without permission</div><div class="v num">${att.totals.absent}</div><div class="d">${att.totals.late_perm + att.totals.late} late arrivals</div></div>
-      <div class="stat"><div class="k">Tasks done</div><div class="v num">${taskTotal ? pct(taskDone, taskTotal) + '%' : '—'}</div><div class="d">${taskDone} of ${taskTotal} assignments</div></div>
+      <div class="stat"><div class="k">Tasks submitted</div><div class="v num">${taskTotal ? pct(taskDone, taskTotal) + '%' : '—'}</div><div class="d">${taskDone} of ${taskTotal} expected</div></div>
       <div class="stat"><div class="k">Average score</div><div class="v num">${avgScore ?? '—'}${avgScore != null ? '%' : ''}</div><div class="d">monthly scorecard</div></div>
     </div>
     ${
@@ -817,6 +831,7 @@ function viewReportDoc(report, type, members) {
         <button class="btn ${canShare ? '' : 'primary'}" data-action="downloadPdf">${icon('download')}Download PDF</button>
         <button class="btn" data-action="copyText">${icon('copy')}Copy for WhatsApp</button>
         <a class="btn" href="#/report/edit~${report.id}">${icon('edit')}Edit report</a>
+        <a class="btn ghost" href="#/reports">${icon('close')}Close</a>
       </div></div>
     ${reportDocHtml(m)}`;
 }
@@ -1131,77 +1146,102 @@ const titleCase = (s) => (s === s.toUpperCase() ? s.toLowerCase().replace(/(^|[\
 
 // ─── Tasks ─────────────────────────────────────────────────────────────────
 
+// Two lists — Submitted / Not submitted. Tap a name to move it across.
+const submitLists = (people, isDone, taskId = '') => {
+  const yes = people.filter((m) => isDone(m.id));
+  const no = people.filter((m) => !isDone(m.id));
+  const chips = (list, done) =>
+    list.length
+      ? list.map((m) => `<button type="button" class="chip ${done ? 'chip-yes' : ''}" data-action="toggleSubmit" data-task="${taskId}" data-id="${m.id}" data-done="${done ? 1 : 0}" title="Move to ${done ? 'Not submitted' : 'Submitted'}">${done ? '✓ ' : ''}${esc(m.full_name)}</button>`).join('')
+      : `<span class="muted small">${done ? 'Nobody yet' : 'Everyone submitted 🎉'}</span>`;
+  return `<div class="submit-cols">
+    <div class="bucket" style="--tone:var(--t-early)"><div class="bucket-h"><span>Submitted</span><span class="c num">${yes.length}</span></div><div class="chip-wrap">${chips(yes, true)}</div></div>
+    <div class="bucket" style="--tone:var(--t-absent)"><div class="bucket-h"><span>Not submitted</span><span class="c num">${no.length}</span></div><div class="chip-wrap">${chips(no, false)}</div></div>
+  </div>`;
+};
+
 async function viewTasks() {
   if (!S.scope) return ($content().innerHTML = needDept('Tasks'));
   const { from, to } = monthRange(S.month);
   const [tasks, members] = await Promise.all([store.listTasks({ deptId: S.scope, from, to }), store.listMembers(S.scope)]);
   const byId = new Map(members.map((m) => [m.id, m]));
+  S.tasks = tasks;
   $content().innerHTML = `
-    <div class="page-head"><div><h1>Tasks</h1><p>${esc(dept().name)} · assignments due in ${monthLabel(S.month)} · these feed the Goals score</p></div>
+    <div class="page-head"><div><h1>Tasks</h1><p>${esc(dept().name)} · due in ${monthLabel(S.month)} · tap a name to mark it submitted or not · feeds the Goals score</p></div>
       <div class="row">${monthPicker()}<button class="btn primary" data-action="editTask">${icon('plus')}New task</button></div></div>
     ${
       tasks.length
         ? tasks
             .map((t) => {
-              const done = t.assignments.filter((a) => a.done).length;
-              const overdue = t.due_date < today() && done < t.assignments.length;
-              return `<div class="card"><div class="card-head"><div><h2>${esc(t.title)}</h2><p>Due ${fmtDate(t.due_date)} ${overdue ? '<span class="pill bad">Overdue</span>' : ''}${t.details ? ' · ' + esc(t.details) : ''}</p></div>
-              <div class="row"><div class="bar-cell" style="min-width:160px"><div class="mini-bar"><i style="width:${pct(done, t.assignments.length) ?? 0}%"></i></div><span class="num small">${done}/${t.assignments.length}</span></div>
+              const people = t.assignments.map((a) => byId.get(a.member_id)).filter(Boolean).sort((x, y) => x.full_name.localeCompare(y.full_name));
+              const done = new Set(t.assignments.filter((a) => a.done).map((a) => a.member_id));
+              const overdue = t.due_date < today() && done.size < people.length;
+              return `<div class="card" id="task-${t.id}"><div class="card-head"><div><h2>${esc(t.title)}</h2><p>Due ${fmtDate(t.due_date)} ${overdue ? '<span class="pill bad">Overdue</span>' : ''}${t.details ? ' · ' + esc(t.details) : ''}</p></div>
+              <div class="row"><div class="bar-cell" style="min-width:160px"><div class="mini-bar"><i style="width:${pct(done.size, people.length) ?? 0}%"></i></div><span class="num small">${done.size}/${people.length}</span></div>
               <button class="btn sm ghost" data-action="editTask" data-id="${t.id}">Edit</button></div></div>
-              <div class="member-pick" style="max-height:none;border:0;padding:0">${t.assignments
-                .map((a) => ({ a, m: byId.get(a.member_id) }))
-                .filter((x) => x.m)
-                .sort((x, y) => x.m.full_name.localeCompare(y.m.full_name))
-                .map(({ a, m }) => `<label class="check"><input type="checkbox" data-input="taskDone" data-task="${t.id}" data-id="${m.id}" ${a.done ? 'checked' : ''}>${esc(m.full_name)}</label>`)
-                .join('')}</div></div>`;
+              ${submitLists(people, (id) => done.has(id), t.id)}</div>`;
             })
             .join('')
-        : `<div class="card empty"><h3>No tasks due in ${monthLabel(S.month)}</h3><p>Create a task — weekly goals, follow-ups, submissions — and tick members off as they complete it.</p></div>`
+        : `<div class="card empty"><h3>No tasks due in ${monthLabel(S.month)}</h3><p>Create a task — weekly goals, follow-ups, submissions — then mark who submitted and who didn't.</p></div>`
     }`;
   ACTIONS.editTask = (el) => taskModal(tasks.find((t) => t.id === el.dataset.id), members.filter((m) => m.active));
 }
-INPUTS.taskDone = async (el, e) => {
-  if (e.type !== 'change') return;
-  try {
-    await store.setTaskDone(el.dataset.task, el.dataset.id, el.checked);
-    const card = el.closest('.card');
-    const boxes = [...card.querySelectorAll('input[type=checkbox]')];
-    const n = boxes.filter((b) => b.checked).length;
-    card.querySelector('.mini-bar i').style.width = pct(n, boxes.length) + '%';
-    card.querySelector('.bar-cell span').textContent = `${n}/${boxes.length}`;
-  } catch (err) {
-    el.checked = !el.checked;
-    fail(err);
-  }
+
+ACTIONS.toggleSubmit = async (el) => {
+  const { task, id } = el.dataset;
+  const done = el.dataset.done !== '1';
+  if (!task) return; // inside the task form (handled there)
+  await store.setTaskDone(task, id, done);
+  const t = S.tasks.find((x) => x.id === task);
+  t.assignments.find((a) => a.member_id === id).done = done;
+  viewTasks();
 };
 
 function taskModal(t, members) {
-  const assigned = new Set(t ? t.assignments.map((a) => a.member_id) : members.map((m) => m.id));
+  // Everyone active is on the task; previously-recorded people who left stay too.
+  const people = [...members];
+  const submitted = new Set(t ? t.assignments.filter((a) => a.done).map((a) => a.member_id) : []);
   const back = modal(
     t ? 'Edit task' : 'New task',
-    `<div class="field"><label for="tTitle">Task</label><input class="input" id="tTitle" value="${esc(t?.title)}" placeholder="e.g. Share Sunday flyer on WhatsApp status"></div>
+    `<div class="field"><label for="tTitle">Task</label><input class="input" id="tTitle" value="${esc(t?.title)}" placeholder="e.g. Submit weekly lesson plan"></div>
      <div class="field"><label for="tDet">Details (optional)</label><input class="input" id="tDet" value="${esc(t?.details)}"></div>
      <div class="field"><label for="tDue">Due date</label><input class="input" type="date" id="tDue" value="${t?.due_date ?? today()}"></div>
-     <div class="field"><div class="row" style="justify-content:space-between"><span class="label">Assign to</span><span><button class="linkish small" data-all="1">All</button> · <button class="linkish small" data-all="0">None</button></span></div>
-     <div class="member-pick">${members.map((m) => `<label class="check"><input type="checkbox" value="${m.id}" ${assigned.has(m.id) ? 'checked' : ''}>${esc(m.full_name)}</label>`).join('')}</div></div>
-     ${t ? '<div><button class="btn sm danger" data-del>Delete task</button></div>' : ''}`,
+     <div class="field"><div class="row" style="justify-content:space-between"><span class="label">Who submitted?</span>
+       <span class="small"><button type="button" class="linkish" data-all="1">Everyone</button> · <button type="button" class="linkish" data-all="0">Nobody</button></span></div>
+       <p class="small muted" style="margin:0">Tap a name to move it between the two lists. You can also do this later from the Tasks page.</p>
+       <div id="tSubmit">${submitLists(people, (id) => submitted.has(id))}</div></div>
+     ${t ? '<div><button type="button" class="btn sm danger" data-del>Delete task</button></div>' : ''}`,
     {
-      onOk: async (root) => {
-        const title = root.querySelector('#tTitle').value.trim();
-        const due_date = root.querySelector('#tDue').value;
-        const ids = [...root.querySelectorAll('.member-pick input:checked')].map((i) => i.value);
+      okLabel: t ? 'Save task' : 'Create task',
+      wide: true,
+      onOk: async () => {
+        const title = back.querySelector('#tTitle').value.trim();
+        const due_date = back.querySelector('#tDue').value;
         if (!title || !due_date) return toast('Task and due date are required', true), false;
-        if (!ids.length) return toast('Assign at least one member', true), false;
-        await store.saveTask({ id: t?.id, department_id: S.scope, title, details: root.querySelector('#tDet').value.trim(), due_date }, ids);
+        if (!people.length) return toast('Add members first', true), false;
+        await store.saveTask({ id: t?.id, department_id: S.scope, title, details: back.querySelector('#tDet').value.trim(), due_date }, people.map((m) => m.id), [...submitted]);
         toast('Task saved');
         viewTasks();
       },
     }
   );
-  back.querySelectorAll('[data-all]').forEach((b) => (b.onclick = () => back.querySelectorAll('.member-pick input').forEach((i) => (i.checked = b.dataset.all === '1'))));
+  const redraw = () => (back.querySelector('#tSubmit').innerHTML = submitLists(people, (id) => submitted.has(id)));
+  back.addEventListener('click', (e) => {
+    const chip = e.target.closest('[data-action=toggleSubmit]');
+    if (chip) {
+      submitted.has(chip.dataset.id) ? submitted.delete(chip.dataset.id) : submitted.add(chip.dataset.id);
+      redraw();
+    }
+    const all = e.target.closest('[data-all]');
+    if (all) {
+      submitted.clear();
+      if (all.dataset.all === '1') people.forEach((m) => submitted.add(m.id));
+      redraw();
+    }
+  });
   back.querySelector('[data-del]')?.addEventListener('click', () => {
     back.remove();
-    confirmBox('Delete task?', 'This removes the task and its completion record.', 'Delete', async () => {
+    confirmBox('Delete task?', 'This removes the task and its submission record.', 'Delete', async () => {
       await store.deleteTask(t.id);
       viewTasks();
     });
@@ -1238,7 +1278,7 @@ function scoringHelp() {
   <li><b>Participation (20)</b> — prayer meetings and calls, post-service attendance, prayer-call engagement, and WhatsApp/social media post compliance.</li>
   <li><b>Evangelism (10)</b> — share of evangelism outings joined (excused absences not counted).</li>
   <li><b>Souls (30)</b> — guests invited + souls reached, against a monthly target of ${SOULS_MONTHLY_TARGET}.</li>
-  <li><b>Goals (15)</b> — share of assigned tasks completed.</li></ul>
+  <li><b>Goals (15)</b> — share of tasks the member submitted.</li></ul>
   <p>Weights and targets live in <code>js/templates.js</code> and can be changed.</p></div>`;
 }
 
@@ -1304,7 +1344,7 @@ function scorecardHtml(c) {
         <div class="sc-box"><h4>Summary breakdown</h4><dl>
           <dt>Souls / guests:</dt><dd>${st.souls}</dd><dt>Contraventions:</dt><dd>${st.contravention}</dd>
           <dt>Times late:</dt><dd>${st.late}</dd><dt>Times absent:</dt><dd>${st.absent}</dd>
-          <dt>Tasks completed:</dt><dd>${st.tasks_done}/${st.tasks_total}</dd><dt>Prayers attended:</dt><dd>${st.prayer}</dd>
+          <dt>Tasks submitted:</dt><dd>${st.tasks_done}/${st.tasks_total}</dd><dt>Prayers attended:</dt><dd>${st.prayer}</dd>
           <dt>Services attended:</dt><dd>${st.served}</dd><dt>Evangelism attended:</dt><dd>${st.evangelism}</dd></dl></div>
         <div class="sc-box sc-sign"><div class="line">${esc(d?.head_name || 'Head of Department')}<small>Department Head</small></div></div>
       </div>
