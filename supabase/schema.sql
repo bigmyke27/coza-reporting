@@ -77,6 +77,17 @@ create table if not exists task_assignments (
   primary key (task_id, member_id)
 );
 
+-- Admins added ahead of sign-up. When someone creates an account with an
+-- invited email, they get that role and department straight away.
+create table if not exists admin_invites (
+  email text primary key check (email = lower(email)),
+  full_name text,
+  role text not null default 'dept_admin' check (role in ('dept_admin','global_admin')),
+  department_id uuid references departments(id) on delete cascade,
+  invited_by uuid references auth.users(id) default auth.uid(),
+  created_at timestamptz not null default now()
+);
+
 -- Columns added after the first release (no-ops on a fresh install).
 alter table departments add column if not exists head_name text;
 
@@ -99,14 +110,25 @@ $$;
 -- New sign-ups get a pending profile. The very first account becomes global admin.
 create or replace function handle_new_user() returns trigger
 language plpgsql security definer set search_path = public as $$
+declare
+  inv admin_invites%rowtype;
 begin
-  insert into profiles (id, email, full_name, role)
+  select * into inv from admin_invites where email = lower(new.email);
+  insert into profiles (id, email, full_name, role, department_id)
   values (
     new.id,
     new.email,
-    coalesce(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)),
-    case when exists (select 1 from profiles where role = 'global_admin') then 'pending' else 'global_admin' end
+    coalesce(nullif(new.raw_user_meta_data->>'full_name', ''), inv.full_name, split_part(new.email, '@', 1)),
+    case
+      when inv.email is not null then inv.role
+      when exists (select 1 from profiles where role = 'global_admin') then 'pending'
+      else 'global_admin'
+    end,
+    inv.department_id
   );
+  if inv.email is not null then
+    delete from admin_invites where email = inv.email;
+  end if;
   return new;
 end;
 $$;
@@ -157,6 +179,7 @@ alter table reports enable row level security;
 alter table report_entries enable row level security;
 alter table tasks enable row level security;
 alter table task_assignments enable row level security;
+alter table admin_invites enable row level security;
 
 drop policy if exists "read departments" on departments;
 create policy "read departments" on departments for select to authenticated
@@ -196,6 +219,10 @@ drop policy if exists "dept task assignments" on task_assignments;
 create policy "dept task assignments" on task_assignments for all to authenticated
   using (exists (select 1 from tasks t where t.id = task_id and can_access_department(t.department_id)))
   with check (exists (select 1 from tasks t where t.id = task_id and can_access_department(t.department_id)));
+
+drop policy if exists "global manages invites" on admin_invites;
+create policy "global manages invites" on admin_invites for all to authenticated
+  using (is_global_admin()) with check (is_global_admin());
 
 -- ─── Starting data ─────────────────────────────────────────────────────────
 

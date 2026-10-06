@@ -125,7 +125,7 @@ function renderAuth(mode = 'signin', error = '') {
           ? `New department admin? <button type="button" class="linkish" data-mode="signup">Create an account</button> · <button type="button" class="linkish" data-mode="reset">Forgot password</button>`
           : `<button type="button" class="linkish" data-mode="signin">Back to sign in</button>`
       }</div>
-      ${mode === 'signup' ? '<div class="small muted">A global admin approves new accounts and assigns your department.</div>' : ''}
+      ${mode === 'signup' ? '<div class="small muted">Were you added as an admin? Use that same email and you\'ll go straight in. Otherwise a global admin will approve your account.</div>' : ''}
     </form></div></div>`;
   const form = document.getElementById('authForm');
   form.querySelectorAll('[data-mode]').forEach((b) => (b.onclick = () => renderAuth(b.dataset.mode)));
@@ -1068,8 +1068,9 @@ function scorecardHtml(c) {
 
 async function viewAdmin() {
   if (!isGlobal()) return ($content().innerHTML = '<div class="card empty"><h3>Global admins only</h3></div>');
-  const [profiles, members] = await Promise.all([store.listProfiles(), store.listMembers()]);
+  const [profiles, members, invites] = await Promise.all([store.listProfiles(), store.listMembers(), store.listInvites()]);
   const pending = profiles.filter((p) => p.role === 'pending');
+  ACTIONS.addAdmin = (el) => adminModal(profiles, el.dataset.dept);
   const deptOpts = (sel) => `<option value="">— none —</option>${S.departments.map((d) => `<option value="${d.id}" ${d.id === sel ? 'selected' : ''}>${esc(d.name)}</option>`).join('')}`;
   $content().innerHTML = `
     <div class="page-head"><div><h1>Departments & admins</h1><p>Add departments, approve new admins, and choose who can see what.</p></div></div>
@@ -1078,11 +1079,23 @@ async function viewAdmin() {
         .map(
           (d) => `<tr><td><b>${esc(d.name)}</b></td><td>${esc(d.head_name) || '<span class="muted">—</span>'}</td><td class="r num">${members.filter((m) => m.department_id === d.id && m.active).length}</td>
           <td class="r num">${profiles.filter((p) => p.department_id === d.id && p.role === 'dept_admin').length}</td>
-          <td class="small">${(d.report_types ?? []).map((k) => REPORT_TYPE_MAP[k]?.short).filter(Boolean).join(', ')}</td><td class="r"><button class="btn sm ghost" data-action="editDept" data-id="${d.id}">Edit</button></td></tr>`
+          <td class="small">${(d.report_types ?? []).map((k) => REPORT_TYPE_MAP[k]?.short).filter(Boolean).join(', ')}</td><td class="r"><button class="btn sm ghost" data-action="addAdmin" data-dept="${d.id}">+ Admin</button><button class="btn sm ghost" data-action="editDept" data-id="${d.id}">Edit</button></td></tr>`
         )
         .join('')}</tbody></table></div></div>
     <div class="card"><div class="card-head"><div><h2>Admins ${pending.length ? `<span class="pill warn">${pending.length} awaiting approval</span>` : ''}</h2>
-      <p>New admins sign up on the login page, then appear here. Set their role and department, then save.</p></div></div>
+      <p>Add an admin by email, or approve people who signed up on their own. Change a role or department, then click Save.</p></div>
+      <button class="btn primary sm" data-action="addAdmin">${icon('plus')}Add admin</button></div>
+      ${
+        invites.length
+          ? `<h3 style="margin:4px 0 8px">Invited — waiting for them to create their account</h3><div class="table-wrap" style="margin-bottom:18px"><table><thead><tr><th>Name</th><th>Role</th><th>Department</th><th></th></tr></thead><tbody>${invites
+              .map(
+                (i) => `<tr><td><div style="font-weight:600">${esc(i.full_name || i.email)}</div><div class="small muted">${esc(i.email)}</div></td>
+                <td><span class="pill warn">Invited</span> ${i.role === 'global_admin' ? 'Global admin' : 'Department admin'}</td><td>${esc(dept(i.department_id)?.name ?? '—')}</td>
+                <td class="r"><button class="btn sm" data-action="shareInvite" data-email="${esc(i.email)}">${icon('copy')}Invite message</button> <button class="btn sm ghost danger" data-action="cancelInvite" data-email="${esc(i.email)}">Cancel</button></td></tr>`
+              )
+              .join('')}</tbody></table></div><h3 style="margin:4px 0 8px">Active accounts</h3>`
+          : ''
+      }
       <div class="table-wrap"><table><thead><tr><th>Name</th><th>Role</th><th>Department</th><th></th></tr></thead><tbody>${profiles
         .sort((a, b) => (a.role === 'pending' ? -1 : 0) - (b.role === 'pending' ? -1 : 0))
         .map(
@@ -1093,6 +1106,77 @@ async function viewAdmin() {
         )
         .join('')}</tbody></table></div></div>`;
 }
+const appUrl = () => location.origin + location.pathname;
+const inviteText = (inv) =>
+  `Hi${inv.full_name ? ' ' + inv.full_name.split(' ')[0] : ''}, you've been added as ${inv.role === 'global_admin' ? 'a global admin' : `an admin for ${dept(inv.department_id)?.name ?? 'your department'}`} on ${CHURCH_NAME} ${APP_NAME}.
+
+1. Open ${appUrl()}
+2. Tap "Create an account"
+3. Sign up with this email: ${inv.email}
+4. Confirm the email you receive, then sign in.
+
+You'll go straight in and can fill and view reports for your department.`;
+
+async function showInviteMessage(inv) {
+  const text = inviteText(inv);
+  modal(
+    'Send this invite',
+    `<p class="small muted" style="margin:0">Copy this and send it on WhatsApp or by email. They must sign up with <b>${esc(inv.email)}</b>.</p>
+     <textarea class="input" style="min-height:230px" readonly>${esc(text)}</textarea>
+     <div><button class="btn" data-copy>${icon('copy')}Copy message</button></div>`
+  ).querySelector('[data-copy]').onclick = async (e) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast('Invite copied');
+    } catch {
+      e.target.closest('.modal').querySelector('textarea').select();
+    }
+  };
+}
+
+function adminModal(profiles, presetDept) {
+  modal(
+    'Add admin',
+    `<p class="small muted" style="margin:0">Enter their email and department. When they create an account with this email they go straight in — no approval needed.</p>
+     <div class="field"><label for="aName">Full name</label><input class="input" id="aName" autocomplete="off"></div>
+     <div class="field"><label for="aEmail">Email</label><input class="input" id="aEmail" type="email" autocomplete="off"></div>
+     <div class="grid-2">
+       <div class="field"><label for="aRole">Role</label><select class="input" id="aRole"><option value="dept_admin">Department admin</option><option value="global_admin">Global admin (sees all departments)</option></select></div>
+       <div class="field"><label for="aDept">Department</label><select class="input" id="aDept">${S.departments.map((d) => `<option value="${d.id}" ${d.id === (presetDept || S.scope) ? 'selected' : ''}>${esc(d.name)}</option>`).join('')}</select></div>
+     </div>
+     <p class="small muted" style="margin:0">Department admins can add members, fill and submit reports, set tasks and print scorecards for their department.</p>`,
+    {
+      okLabel: 'Add admin',
+      onOk: async (root) => {
+        const email = root.querySelector('#aEmail').value.trim().toLowerCase();
+        const full_name = root.querySelector('#aName').value.trim() || null;
+        const role = root.querySelector('#aRole').value;
+        const department_id = role === 'dept_admin' ? root.querySelector('#aDept').value : null;
+        if (!/^\S+@\S+\.\S+$/.test(email)) return toast('Enter a valid email', true), false;
+        const existing = profiles.find((p) => (p.email ?? '').toLowerCase() === email);
+        if (existing) {
+          await store.updateProfile(existing.id, { role, department_id });
+          toast(`${existing.full_name || email} already had an account — access updated`);
+        } else {
+          await store.saveInvite({ email, full_name, role, department_id });
+          await viewAdmin();
+          showInviteMessage({ email, full_name, role, department_id });
+          return;
+        }
+        viewAdmin();
+      },
+    }
+  );
+}
+ACTIONS.shareInvite = async (el) => {
+  const inv = (await store.listInvites()).find((i) => i.email === el.dataset.email);
+  if (inv) showInviteMessage(inv);
+};
+ACTIONS.cancelInvite = (el) =>
+  confirmBox('Cancel this invite?', `${el.dataset.email} will no longer be let in automatically.`, 'Cancel invite', async () => {
+    await store.deleteInvite(el.dataset.email);
+    viewAdmin();
+  });
 ACTIONS.saveProfile = async (el) => {
   const tr = el.closest('tr');
   const role = tr.querySelector('[data-f=role]').value;

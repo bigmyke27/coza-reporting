@@ -65,6 +65,15 @@ class SupabaseStore {
   deleteProfile(id) {
     return this.q(this.sb.from('profiles').delete().eq('id', id));
   }
+  listInvites() {
+    return this.q(this.sb.from('admin_invites').select('*').order('created_at'));
+  }
+  saveInvite(inv) {
+    return this.q(this.sb.from('admin_invites').upsert(inv));
+  }
+  deleteInvite(email) {
+    return this.q(this.sb.from('admin_invites').delete().eq('email', email));
+  }
 
   listMembers(deptId) {
     let q = this.sb.from('members').select('*').order('full_name');
@@ -204,6 +213,17 @@ class DemoStore {
   }
   async deleteProfile(id) {
     this.db.profiles = this.db.profiles.filter((p) => p.id !== id);
+    this.persist();
+  }
+  async listInvites() {
+    return (this.db.invites ??= []);
+  }
+  async saveInvite(inv) {
+    this.db.invites = [...(this.db.invites ?? []).filter((i) => i.email !== inv.email), { ...inv, created_at: new Date().toISOString() }];
+    this.persist();
+  }
+  async deleteInvite(email) {
+    this.db.invites = (this.db.invites ?? []).filter((i) => i.email !== email);
     this.persist();
   }
 
