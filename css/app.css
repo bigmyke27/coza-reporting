@@ -46,6 +46,8 @@ h3 { font-size: 1rem; font-weight: 700; }
 .sidebar { background: var(--brand); color: var(--brand-ink); padding: 22px 14px; position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; gap: 4px; }
 .brand { display: flex; align-items: center; gap: 10px; padding: 0 8px 22px; }
 .brand-mark { width: 38px; height: 38px; border-radius: 50%; background: var(--accent); color: var(--brand); display: grid; place-items: center; font-weight: 800; font-size: 0.72rem; letter-spacing: 0.04em; }
+.brand-logo { width: 42px; height: 42px; flex: none; }
+.brand-logo.lg { width: 64px; height: 64px; }
 .brand-name { font-weight: 800; line-height: 1.1; }
 .brand-sub { font-size: 0.75rem; opacity: 0.7; }
 .nav a { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; color: rgba(255, 255, 255, 0.78); text-decoration: none; font-weight: 600; font-size: 0.93rem; }
@@ -62,7 +64,8 @@ h3 { font-size: 1rem; font-weight: 700; }
 .main { min-width: 0; display: flex; flex-direction: column; }
 .topbar { display: flex; align-items: center; gap: 12px; padding: 14px 28px; border-bottom: 1px solid var(--line); background: var(--surface); position: sticky; top: 0; z-index: 20; }
 .topbar .spacer { flex: 1; }
-.topbar .mobile-brand { display: none; font-weight: 800; color: var(--brand); }
+.topbar .mobile-brand { display: none; font-weight: 800; color: var(--brand); align-items: center; gap: 8px; }
+.topbar .mobile-brand img { width: 30px; height: 30px; }
 .content { padding: 28px; max-width: 1240px; width: 100%; margin: 0 auto; }
 .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 22px; }
 .page-head p { margin: 4px 0 0; color: var(--ink-2); }
@@ -237,7 +240,7 @@ td.r, th.r { text-align: right; }
 .sc-top .eyebrow { color: var(--sc-yellow); font-weight: 600; letter-spacing: 0.06em; font-size: 0.9rem; }
 .sc-top h2 { font-size: 2.3rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; margin: 2px 0 10px; position: relative; z-index: 1; }
 .sc-top .meta { font-size: 0.92rem; opacity: 0.9; position: relative; z-index: 1; }
-.sc-top .logo { position: absolute; right: 30px; top: 30px; z-index: 2; width: 66px; height: 66px; border-radius: 50%; border: 2px solid var(--sc-purple); display: grid; place-items: center; color: var(--sc-purple); font-weight: 700; font-size: 0.85rem; }
+.sc-top .logo { position: absolute; right: 34px; top: 26px; z-index: 2; width: 78px; height: 78px; }
 .sc-strip { height: 10px; background: linear-gradient(90deg, var(--sc-pink) 65%, var(--sc-purple) 65%); }
 .sc-body { padding: 30px 36px 20px; display: grid; grid-template-columns: 1fr 210px 1fr; gap: 22px 18px; align-items: center; }
 .sc-pillar { background: #fff; border: 2px solid #2a1a33; border-radius: 14px; padding: 30px 16px 14px; position: relative; }
@@ -275,7 +278,10 @@ td.r, th.r { text-align: right; }
   .shell { grid-template-columns: 1fr; }
   .sidebar { display: none; }
   .topbar { padding: 12px 16px; }
-  .topbar .mobile-brand { display: block; }
+  .topbar .mobile-brand { display: flex; font-size: 0; gap: 0; }
+  .topbar .mobile-brand img { width: 36px; height: 36px; }
+  .topbar { gap: 8px; }
+  #scopeSel { max-width: 180px; padding: 8px 10px; }
   .content { padding: 18px 16px 96px; }
   .demo-bar { padding: 8px 16px; }
   .save-bar { margin: 20px -16px 0; padding: 12px 16px; bottom: 64px; }
@@ -285,6 +291,7 @@ td.r, th.r { text-align: right; }
   .bottom-nav svg { width: 21px; height: 21px; }
   .auth { grid-template-columns: 1fr; }
   .auth-art { padding: 32px 24px; min-height: 220px; }
+  .brand-logo.lg { width: 52px; height: 52px; }
   .auth-art h1 { font-size: 1.7rem; }
   .grid-2 { grid-template-columns: 1fr; }
   .member-pick { grid-template-columns: 1fr; }

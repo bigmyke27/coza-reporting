@@ -1,8 +1,8 @@
-import { store, IS_DEMO } from './store.js';
-import { CHURCH_NAME, APP_NAME } from './config.js';
-import { REPORT_TYPES, REPORT_TYPE_MAP, ALL_REPORT_TYPE_KEYS, PILLARS, SOULS_MONTHLY_TARGET } from './templates.js';
-import { computeScorecards, attendanceByReport } from './scoring.js';
-import { esc, initials, fmtDate, lastWeekday, monthKey, monthRange, shiftMonth, monthLabel, pct, today, downloadFile, toCsv, parseDate } from './util.js';
+import { store, IS_DEMO } from './store.js?v=202610061255';
+import { CHURCH_NAME, APP_NAME } from './config.js?v=202610061255';
+import { REPORT_TYPES, REPORT_TYPE_MAP, ALL_REPORT_TYPE_KEYS, PILLARS, SOULS_MONTHLY_TARGET } from './templates.js?v=202610061255';
+import { computeScorecards, attendanceByReport } from './scoring.js?v=202610061255';
+import { esc, initials, fmtDate, lastWeekday, monthKey, monthRange, shiftMonth, monthLabel, pct, today, downloadFile, toCsv, parseDate } from './util.js?v=202610061255';
 
 // ─── State ─────────────────────────────────────────────────────────────────
 
@@ -111,7 +111,7 @@ async function boot() {
 
 function renderAuth(mode = 'signin', error = '') {
   document.getElementById('app').innerHTML = `<div class="auth">
-    <div class="auth-art"><div class="brand"><div class="brand-mark">${esc(CHURCH_NAME)}</div><div><div class="brand-name">${esc(APP_NAME)}</div></div></div>
+    <div class="auth-art"><div class="brand"><img class="brand-logo lg" src="assets/coza-logo-light.png" alt="${esc(CHURCH_NAME)}"><div><div class="brand-name">${esc(APP_NAME)}</div><div class="brand-sub">Departmental reporting</div></div></div>
       <div><h1>Attendance, tasks and reports — in one place.</h1><p>For department heads and admins. Fill a service report in minutes and see how your team is doing each month.</p></div><div></div></div>
     <div class="auth-form"><form id="authForm">
       <h2>${mode === 'signup' ? 'Create an admin account' : mode === 'reset' ? 'Reset your password' : 'Sign in'}</h2>
@@ -200,13 +200,13 @@ function renderShell() {
   ${demoBar()}
   <div class="shell">
     <aside class="sidebar">
-      <div class="brand"><div class="brand-mark">${esc(CHURCH_NAME)}</div><div><div class="brand-name">${esc(APP_NAME)}</div><div class="brand-sub">Departmental reporting</div></div></div>
+      <div class="brand"><img class="brand-logo" src="assets/coza-logo-light.png" alt="${esc(CHURCH_NAME)}"><div><div class="brand-name">${esc(APP_NAME)}</div><div class="brand-sub">Departmental reporting</div></div></div>
       <nav class="nav">${nav.map(([r, l, i], n) => `${n === 6 ? '<div class="nav-sep"></div>' : ''}<a href="#/${r}" data-route="${r}">${icon(i)}${l}</a>`).join('')}</nav>
       <div class="side-foot"><div class="who">${esc(S.profile.full_name || S.profile.email)}</div><div class="role">${roleLabel}</div><button id="signOut">Sign out</button></div>
     </aside>
     <div class="main">
       <header class="topbar no-print">
-        <span class="mobile-brand">${esc(CHURCH_NAME)} Reports</span>
+        <span class="mobile-brand"><img src="assets/coza-logo-dark.png" alt="">${esc(CHURCH_NAME)} Reports</span>
         <div class="spacer"></div>
         ${
           isGlobal()
@@ -220,7 +220,7 @@ function renderShell() {
       <main class="content" id="content"></main>
     </div>
   </div>
-  <nav class="bottom-nav">${nav.slice(0, 5).map(([r, l, i]) => `<a href="#/${r}" data-route="${r}">${icon(i)}${l.split(' ')[0]}</a>`).join('')}</nav>`;
+  <nav class="bottom-nav">${[...nav.slice(0, 5), ...(isGlobal() ? [['admin', 'Admins', 'admin']] : [])].map(([r, l, i]) => `<a href="#/${r}" data-route="${r}">${icon(i)}${l.split(' ')[0]}</a>`).join('')}</nav>`;
   wireDemoBar();
   document.getElementById('signOut').onclick = signOut;
   const sel = document.getElementById('scopeSel');
@@ -1040,7 +1040,7 @@ function scorecardHtml(c) {
   const part = c.pillars.participation;
   return `<article class="scorecard">
     <div class="sc-top"><div class="eyebrow">MONTHLY MEMBER SCORECARD</div><h2>${esc(c.member.full_name)}</h2>
-      <div class="meta">${monthLabel(S.month)} &nbsp;|&nbsp; Department / Role: ${esc(d?.name ?? '')} / Member</div><div class="logo">${esc(CHURCH_NAME)}</div></div>
+      <div class="meta">${monthLabel(S.month)} &nbsp;|&nbsp; Department / Role: ${esc(d?.name ?? '')} / Member</div><img class="logo" src="assets/coza-logo-dark.png" alt="${esc(CHURCH_NAME)}"></div>
     <div class="sc-strip"></div>
     <div class="sc-body">
       ${pillar('attendance')}
@@ -1073,8 +1073,9 @@ async function viewAdmin() {
   ACTIONS.addAdmin = (el) => adminModal(profiles, el.dataset.dept);
   const deptOpts = (sel) => `<option value="">— none —</option>${S.departments.map((d) => `<option value="${d.id}" ${d.id === sel ? 'selected' : ''}>${esc(d.name)}</option>`).join('')}`;
   $content().innerHTML = `
-    <div class="page-head"><div><h1>Departments & admins</h1><p>Add departments, approve new admins, and choose who can see what.</p></div></div>
-    <div class="card"><div class="card-head"><div><h2>Departments</h2><p>Each department admin only sees their own department.</p></div><button class="btn primary sm" data-action="editDept">${icon('plus')}Add department</button></div>
+    <div class="page-head"><div><h1>Departments & admins</h1><p>Add departments, add admins, and choose who can see what.</p></div>
+      <div class="row"><button class="btn" data-action="editDept">${icon('plus')}Add department</button><button class="btn primary" data-action="addAdmin">${icon('plus')}Add admin</button></div></div>
+    <div class="card"><div class="card-head"><div><h2>Departments</h2><p>Each department admin only sees their own department.</p></div></div>
       <div class="table-wrap"><table><thead><tr><th>Department</th><th>Head</th><th class="r">Members</th><th class="r">Admins</th><th>Reports used</th><th></th></tr></thead><tbody>${S.departments
         .map(
           (d) => `<tr><td><b>${esc(d.name)}</b></td><td>${esc(d.head_name) || '<span class="muted">—</span>'}</td><td class="r num">${members.filter((m) => m.department_id === d.id && m.active).length}</td>
@@ -1084,7 +1085,7 @@ async function viewAdmin() {
         .join('')}</tbody></table></div></div>
     <div class="card"><div class="card-head"><div><h2>Admins ${pending.length ? `<span class="pill warn">${pending.length} awaiting approval</span>` : ''}</h2>
       <p>Add an admin by email, or approve people who signed up on their own. Change a role or department, then click Save.</p></div>
-      <button class="btn primary sm" data-action="addAdmin">${icon('plus')}Add admin</button></div>
+      <button class="btn sm" data-action="addAdmin">${icon('plus')}Add admin</button></div>
       ${
         invites.length
           ? `<h3 style="margin:4px 0 8px">Invited — waiting for them to create their account</h3><div class="table-wrap" style="margin-bottom:18px"><table><thead><tr><th>Name</th><th>Role</th><th>Department</th><th></th></tr></thead><tbody>${invites

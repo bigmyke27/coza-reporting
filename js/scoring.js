@@ -1,7 +1,7 @@
 // Turns a month of reports + tasks into per-member scorecards and
 // department-level stats. All rules come from the `score`/`stat` fields in
 // templates.js, so changing a template changes the scoring with it.
-import { REPORT_TYPE_MAP, PILLARS, SOULS_MONTHLY_TARGET } from './templates.js';
+import { REPORT_TYPE_MAP, PILLARS, SOULS_MONTHLY_TARGET } from './templates.js?v=202610061255';
 
 const emptyStats = () => ({ souls: 0, late: 0, absent: 0, excused: 0, served: 0, prayer: 0, prayer_missed: 0, evangelism: 0, contravention: 0, post: 0, tasks_done: 0, tasks_total: 0 });
 
