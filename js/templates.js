@@ -11,6 +11,8 @@
 //   pillar  — which scorecard pillar it feeds
 //   values  — points (0–1) for each category; null = "excused, don't count"
 //   missing — value for members not placed in any category (null = don't count)
+// `note` adds a free-text box to a name-based section. If nobody is listed and a
+// note is written, the note replaces "NONE" and the section isn't scored.
 // `stat` on a category feeds the scorecard's "Summary breakdown" counters.
 
 const ATTENDANCE = {
@@ -44,8 +46,10 @@ const postService = (attendedLabel) => ({
   categories: [
     { key: 'attended', label: attendedLabel, tone: 'early' },
     { key: 'excused', label: 'Did not attend — with permission', tone: 'absentperm', remarks: true },
+    { key: 'absent', label: 'Did not attend — without permission', tone: 'absent', remarks: true },
   ],
-  score: { pillar: 'participation', values: { attended: 1, excused: null }, missing: 0 },
+  score: { pillar: 'participation', values: { attended: 1, excused: null, absent: 0 }, missing: 0 },
+  fillRest: 'absent',
 });
 
 const compliance = (key, title) => ({
@@ -54,6 +58,9 @@ const compliance = (key, title) => ({
   kind: 'assign',
   optional: true,
   emptyText: 'NONE',
+  // Lets the HOD explain an empty section — e.g. there was no service post at
+  // all that day, which is different from a post nobody engaged with.
+  note: 'If there was no post today, say so here',
   categories: [{ key: 'complied', label: 'Complied', tone: 'early', stat: ['post'] }],
   score: { pillar: 'participation', values: { complied: 1 }, missing: 0 },
 });

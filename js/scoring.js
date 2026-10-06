@@ -1,7 +1,7 @@
 // Turns a month of reports + tasks into per-member scorecards and
 // department-level stats. All rules come from the `score`/`stat` fields in
 // templates.js, so changing a template changes the scoring with it.
-import { REPORT_TYPE_MAP, PILLARS, SOULS_MONTHLY_TARGET } from './templates.js?v=202610061436';
+import { REPORT_TYPE_MAP, PILLARS, SOULS_MONTHLY_TARGET } from './templates.js?v=202610062106';
 
 const emptyStats = () => ({ souls: 0, late: 0, absent: 0, excused: 0, served: 0, prayer: 0, prayer_missed: 0, evangelism: 0, contravention: 0, post: 0, tasks_done: 0, tasks_total: 0 });
 
@@ -26,10 +26,13 @@ export function computeScorecards(members, reports, tasks) {
         continue;
       }
       const cats = Object.fromEntries(s.categories.map((c) => [c.key, c]));
+      // Nobody listed but a note written (e.g. "No social media post today"):
+      // the activity didn't happen, so nobody is marked down for it.
+      const notApplicable = s.note && bySection.size === 0 && (r.notes?.[s.key] ?? '').trim() !== '';
       for (const c of cards.values()) {
         const e = bySection.get(c.member.id);
         if (e) (cats[e.category]?.stat ?? []).forEach((k) => (c.stats[k] += 1));
-        if (!s.score) continue;
+        if (!s.score || notApplicable) continue;
         const v = e ? s.score.values[e.category] : s.score.missing;
         if (v == null) continue;
         c.sums[s.score.pillar].got += v;

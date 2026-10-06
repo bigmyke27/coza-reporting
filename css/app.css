@@ -190,6 +190,12 @@ td.r, th.r { text-align: right; }
 .bucket li .line { display: flex; align-items: center; gap: 6px; justify-content: space-between; }
 .bucket li button { border: 0; background: none; color: var(--muted); cursor: pointer; padding: 0 4px; font-size: 1rem; line-height: 1; }
 .bucket li button:hover { color: var(--bad); }
+/* Free-text note on a name-based section (WhatsApp / social media posts). */
+.note-box { display: block; margin-top: 12px; }
+.note-box > span { display: block; margin-bottom: 4px; }
+.note-box textarea { min-height: 54px; }
+.doc-note { margin-top: 6px; font-style: italic; }
+
 .bucket .remark { width: 100%; border: 0; border-bottom: 1px dashed var(--line-2); font-size: 0.82rem; padding: 2px 0; color: var(--ink-2); background: transparent; }
 .bucket .none { color: var(--muted); font-size: 0.85rem; }
 .counts { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }

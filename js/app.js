@@ -1,8 +1,8 @@
-import { store, IS_DEMO } from './store.js?v=202610061436';
-import { CHURCH_NAME, APP_NAME } from './config.js?v=202610061436';
-import { REPORT_TYPES, REPORT_TYPE_MAP, ALL_REPORT_TYPE_KEYS, PILLARS, SOULS_MONTHLY_TARGET } from './templates.js?v=202610061436';
-import { computeScorecards, attendanceByReport } from './scoring.js?v=202610061436';
-import { esc, initials, fmtDate, lastWeekday, monthKey, monthRange, shiftMonth, monthLabel, pct, today, downloadFile, toCsv, parseDate } from './util.js?v=202610061436';
+import { store, IS_DEMO } from './store.js?v=202610062106';
+import { CHURCH_NAME, APP_NAME } from './config.js?v=202610062106';
+import { REPORT_TYPES, REPORT_TYPE_MAP, ALL_REPORT_TYPE_KEYS, PILLARS, SOULS_MONTHLY_TARGET } from './templates.js?v=202610062106';
+import { computeScorecards, attendanceByReport } from './scoring.js?v=202610062106';
+import { esc, initials, fmtDate, lastWeekday, monthKey, monthRange, shiftMonth, monthLabel, pct, today, downloadFile, toCsv, parseDate } from './util.js?v=202610062106';
 
 // ─── State ─────────────────────────────────────────────────────────────────
 
@@ -625,7 +625,8 @@ function sectionHtml(s, i) {
           ? `<ol class="plain-list">${list.map(([id, v]) => `<li>${esc(ed.byId.get(id)?.full_name ?? '?')}${v.remark ? ` <span class="muted">— ${esc(v.remark)}</span>` : ''}</li>`).join('')}</ol>`
           : `<p class="small muted" style="margin:0 0 10px">Nothing recorded — the report will say “${esc(s.emptyText)}”.</p>`
       }
-      <button class="btn sm" data-action="openPool" data-sec="${s.key}">${icon('plus')}${list.length ? 'Add or change names' : 'Add a name'}</button></div>`;
+      <button class="btn sm" data-action="openPool" data-sec="${s.key}">${icon('plus')}${list.length ? 'Add or change names' : 'Add a name'}</button>
+      ${noteBoxHtml(s)}</div>`;
   }
   return `${head}<div class="section-body">
     ${s.categories.length > 1 ? `<div class="cat-tabs" role="tablist">${s.categories.map((c) => `<button class="cat-tab ${c.key === activeCat.key ? 'on' : ''}" style="--tone:var(--t-${c.tone})" data-action="cat" data-sec="${s.key}" data-cat="${c.key}" role="tab" aria-selected="${c.key === activeCat.key}"><span class="dot" style="background:var(--t-${c.tone})"></span>${esc(c.label)}<span class="c num">${count(c.key)}</span></button>`).join('')}</div>` : ''}
@@ -639,7 +640,17 @@ function sectionHtml(s, i) {
         return `<div class="bucket" style="--tone:var(--t-${c.tone})"><div class="bucket-h"><span>${esc(c.label)}</span><span class="c num">${list.length}</span></div>
         ${list.length ? `<ol>${list.map(([id, v]) => `<li><div class="line"><span>${esc(ed.byId.get(id)?.full_name ?? '?')}</span><button data-action="unassign" data-sec="${s.key}" data-id="${id}" aria-label="Remove ${esc(ed.byId.get(id)?.full_name)}">×</button></div>${c.remarks ? `<input class="remark" placeholder="Remark (optional)" data-input="remark" data-sec="${s.key}" data-id="${id}" value="${esc(v.remark)}">` : ''}</li>`).join('')}</ol>` : '<div class="none">None</div>'}</div>`;
       })
-      .join('')}</div></div>`;
+      .join('')}</div>
+    ${noteBoxHtml(s)}</div>`;
+}
+
+// A free-text box on a name-based section, for sections that declare `note`.
+// It writes to the same `notes` store the text-only sections use, so it saves
+// and exports with no extra plumbing.
+function noteBoxHtml(s) {
+  if (!s.note) return '';
+  return `<label class="note-box"><span class="small muted">Note (optional)</span>
+    <textarea class="input" rows="2" data-input="note" data-sec="${s.key}" placeholder="${esc(s.note)}" aria-label="${esc(s.title)} — note">${esc(S.editor.notes[s.key] ?? '')}</textarea></label>`;
 }
 
 function rerender(secKey, focusSearch = false) {
@@ -755,6 +766,10 @@ function reportModel(report, type, byId, entries = report.entries, notes = repor
   const sections = type.sections.map((s, i) => {
     const list = entries.filter((e) => e.section === s.key);
     const sec = { n: i + 1, title: s.title, blocks: [] };
+    if (s.note) {
+      const t = (notes[s.key] || '').trim();
+      if (t) sec.note = t;
+    }
     if (s.kind === 'text') sec.text = (notes[s.key] || '').trim() || s.placeholder;
     else if (s.kind === 'counts') {
       sec.blocks.push({ items: list.map((e) => ({ name: nameOf(e.member_id), extra: String(e.value) })), empty: s.emptyText });
@@ -764,6 +779,11 @@ function reportModel(report, type, byId, entries = report.entries, notes = repor
       s.categories.forEach((c, ci) =>
         sec.blocks.push({ label: `${'ABCDEFGHIJ'[ci]}. ${c.label}`, tone: c.tone, items: list.filter((e) => e.category === c.key).map((e) => ({ name: nameOf(e.member_id), extra: e.remark })), empty: 'NONE' })
       );
+    // An empty list with a note ("No post today") reads as the note, not "NONE".
+    if (sec.note && sec.blocks.length === 1 && !sec.blocks[0].items.length) {
+      sec.blocks[0].empty = sec.note;
+      delete sec.note;
+    }
     return sec;
   });
   return {
@@ -792,6 +812,7 @@ function reportText(m) {
       if (!b.items.length) L.push(b.empty);
       b.items.forEach((it, n) => L.push(`${n + 1}. ${it.name.toUpperCase()}${it.extra ? ' - ' + it.extra.toUpperCase() : ''}`));
     }
+    if (s.note) L.push(s.note.toUpperCase());
     if (s.total) L.push(s.total.toUpperCase());
     L.push('');
   }
@@ -813,6 +834,7 @@ function reportDocHtml(m) {
             ${b.items.length ? `<ol>${b.items.map((it) => `<li>${esc(it.name)}${it.extra ? ` <span class="muted">— ${esc(it.extra)}</span>` : ''}</li>`).join('')}</ol>` : `<div class="doc-none">${esc(b.empty)}</div>`}</div>`
           )
           .join('')}
+        ${s.note ? `<p class="doc-text doc-note">${esc(s.note)}</p>` : ''}
         ${s.total ? `<div class="doc-total">${esc(s.total)}</div>` : ''}</section>`
       )
       .join('')}
@@ -961,6 +983,14 @@ async function buildPdf(m) {
         if (i < lines.length) room(999);
       }
       y += 1.5;
+    }
+    if (s.note) {
+      pdf.setFont('helvetica', 'italic').setFontSize(10).setTextColor(...INK);
+      for (const line of pdf.splitTextToSize(pdfSafe(s.note), W - 2 * M - 7)) {
+        room(5);
+        pdf.text(line, M + 7, y);
+        y += 5;
+      }
     }
     if (s.total) {
       room(5);
