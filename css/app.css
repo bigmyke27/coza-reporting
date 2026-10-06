@@ -117,7 +117,7 @@ textarea.input { min-height: 84px; resize: vertical; }
 .stat .v { font-size: 1.9rem; font-weight: 800; margin-top: 4px; line-height: 1.1; }
 .stat .d { font-size: 0.82rem; color: var(--ink-2); margin-top: 4px; }
 .dash-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.dash-grid > .card { margin: 0; }
+.dash-grid > .card { margin: 0; min-width: 0; }
 .dash-grid .wide { grid-column: 1 / -1; }
 .chart-box { position: relative; height: 290px; }
 .chart-box.short { height: 230px; }
@@ -228,6 +228,10 @@ td.r, th.r { text-align: right; }
 .doc-total { margin-left: 32px; font-weight: 700; font-size: 0.88rem; }
 .doc-end { text-align: center; font-weight: 800; color: var(--brand); letter-spacing: 0.08em; padding-top: 18px; font-size: 0.85rem; }
 .plain-list { margin: 0 0 10px; padding-left: 22px; font-size: 0.92rem; }
+
+/* ── Member report ──────────────────────────────────── */
+.stackbar { display: flex; gap: 2px; height: 14px; border-radius: 7px; overflow: hidden; }
+.stackbar i { display: block; min-width: 4px; }
 
 /* ── Task submissions ───────────────────────────────── */
 .submit-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }

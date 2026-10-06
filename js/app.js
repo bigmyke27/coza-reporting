@@ -1,8 +1,8 @@
-import { store, IS_DEMO } from './store.js?v=202610062106';
-import { CHURCH_NAME, APP_NAME } from './config.js?v=202610062106';
-import { REPORT_TYPES, REPORT_TYPE_MAP, ALL_REPORT_TYPE_KEYS, PILLARS, SOULS_MONTHLY_TARGET } from './templates.js?v=202610062106';
-import { computeScorecards, attendanceByReport } from './scoring.js?v=202610062106';
-import { esc, initials, fmtDate, lastWeekday, monthKey, monthRange, shiftMonth, monthLabel, pct, today, downloadFile, toCsv, parseDate } from './util.js?v=202610062106';
+import { store, IS_DEMO } from './store.js?v=202610062225';
+import { CHURCH_NAME, APP_NAME } from './config.js?v=202610062225';
+import { REPORT_TYPES, REPORT_TYPE_MAP, ALL_REPORT_TYPE_KEYS, PILLARS, SOULS_MONTHLY_TARGET } from './templates.js?v=202610062225';
+import { computeScorecards, attendanceByReport } from './scoring.js?v=202610062225';
+import { esc, initials, fmtDate, lastWeekday, monthKey, monthRange, shiftMonth, monthLabel, pct, today, downloadFile, toCsv, parseDate } from './util.js?v=202610062225';
 
 // ─── State ─────────────────────────────────────────────────────────────────
 
@@ -28,6 +28,7 @@ const ICONS = {
   members: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
   tasks: '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
   scorecard: '<circle cx="12" cy="8" r="6"/><path d="M15.5 13.5 17 22l-5-3-5 3 1.5-8.5"/>',
+  person: '<circle cx="12" cy="7" r="4"/><path d="M5.5 21a6.5 6.5 0 0 1 13 0"/>',
   admin: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
   print: '<path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/>',
   download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
@@ -209,7 +210,7 @@ const NAV = [
 ];
 
 function renderShell() {
-  const nav = [...NAV, ...(isGlobal() ? [['admin', 'Departments & admins', 'admin']] : [])];
+  const nav = [...NAV, ...(isGlobal() ? [['people', 'Member reports', 'person'], ['admin', 'Departments & admins', 'admin']] : [])];
   const roleLabel = isGlobal() ? 'Global admin' : `Dept admin · ${esc(dept(S.profile.department_id)?.name ?? '')}`;
   document.getElementById('app').innerHTML = `
   ${demoBar()}
@@ -265,9 +266,9 @@ function route() {
   }
   S.lastHash = location.hash;
   const [, name = 'dashboard', arg] = (location.hash || '#/dashboard').split('/');
-  document.querySelectorAll('[data-route]').forEach((a) => a.classList.toggle('active', a.dataset.route === name || (name === 'report' && a.dataset.route === 'reports') || (name === 'scorecard' && a.dataset.route === 'scorecards')));
+  document.querySelectorAll('[data-route]').forEach((a) => a.classList.toggle('active', a.dataset.route === name || (name === 'report' && a.dataset.route === 'reports') || (name === 'scorecard' && a.dataset.route === 'scorecards') || (name === 'member' && a.dataset.route === 'people')));
   if (name !== 'report') S.editor = null;
-  const views = { dashboard: viewDashboard, new: viewNewReport, report: () => viewEditor(arg), reports: viewReports, members: viewMembers, tasks: viewTasks, scorecards: viewScorecards, scorecard: () => viewScorecard(arg), admin: viewAdmin };
+  const views = { dashboard: viewDashboard, new: viewNewReport, report: () => viewEditor(arg), reports: viewReports, members: viewMembers, tasks: viewTasks, scorecards: viewScorecards, scorecard: () => viewScorecard(arg), people: viewMemberReports, member: () => viewMemberReport(arg), admin: viewAdmin };
   const v = views[name] ?? viewDashboard;
   $content().innerHTML = '<div class="empty">Loading…</div>';
   window.scrollTo(0, 0);
@@ -1102,7 +1103,7 @@ async function viewMembers() {
         ? `<div class="table-wrap"><table><thead><tr><th>Name</th><th>Instagram</th><th>Facebook</th><th>Phone</th><th>Status</th><th></th></tr></thead><tbody>${list
             .map(
               (m) => `<tr><td><a href="#/scorecard/${m.id}" style="text-decoration:none;color:inherit">${person(m)}</a></td><td>${m.instagram ? '@' + esc(m.instagram) : '<span class="muted">—</span>'}</td><td>${esc(m.facebook) || '<span class="muted">—</span>'}</td><td>${esc(m.phone) || '<span class="muted">—</span>'}</td>
-              <td>${m.active ? '<span class="pill good">Active</span>' : '<span class="pill">Inactive</span>'}</td><td class="r"><button class="btn sm ghost" data-action="editMember" data-id="${m.id}">Edit</button></td></tr>`
+              <td>${m.active ? '<span class="pill good">Active</span>' : '<span class="pill">Inactive</span>'}</td><td class="r">${isGlobal() ? `<a class="btn sm ghost" href="#/member/${m.id}">Report</a>` : ''}<button class="btn sm ghost" data-action="editMember" data-id="${m.id}">Edit</button></td></tr>`
             )
             .join('')}</tbody></table></div>`
         : `<div class="empty"><h3>${members.length ? 'No match' : 'No members yet'}</h3><p>${members.length ? 'Try another name.' : 'Add members one at a time, or paste the whole list from your spreadsheet with “Import list”.'}</p></div>`
@@ -1328,7 +1329,7 @@ async function viewScorecard(memberId) {
   const [c] = computeScorecards([m], reports, tasks);
   $content().innerHTML = `
     <div class="page-head no-print"><div><a href="#/scorecards" class="small">← All scorecards</a><h1 style="margin-top:4px">${esc(m.full_name)}</h1></div>
-      <div class="row">${monthPicker()}<button class="btn primary" onclick="print()">${icon('print')}Print / save PDF</button></div></div>
+      <div class="row">${monthPicker()}${isGlobal() ? `<a class="btn" href="#/member/${m.id}">${icon('reports')}Full member report</a>` : ''}<button class="btn primary" onclick="print()">${icon('print')}Print / save PDF</button></div></div>
     ${scorecardHtml(c)}
     <details class="card no-print" style="margin-top:16px"><summary style="cursor:pointer;font-weight:700">How scores are worked out</summary>${scoringHelp()}</details>`;
 }
@@ -1381,6 +1382,376 @@ function scorecardHtml(c) {
       <div class="sc-note">${esc(CHURCH_NAME)} Departmental Reporting · scores cover what was recorded in ${monthLabel(S.month)}</div>
     </div></article>`;
 }
+
+// ─── Member reports (global admins) ────────────────────────────────────────
+
+const SECTION_SHORT = {
+  post_service: 'Post-service',
+  pre_prayers: 'Pre-service prayers',
+  whatsapp: 'WhatsApp post',
+  social: 'Social media post',
+  engagement_prayers: 'Prayers engagement',
+  engagement_review: 'Message review',
+  guests: 'Guests invited',
+  souls: 'Souls reached',
+  contraventions: 'Contravention',
+};
+const MAIN_SECTIONS = ['attendance', 'prayer', 'evangelism'];
+
+const PERIODS = [
+  ['month', 'This month'],
+  ['3m', 'Last 3 months'],
+  ['year', 'This year'],
+  ['custom', 'Custom'],
+];
+S.mr = { period: 'month', from: null, to: null, q: '' };
+
+function periodRange() {
+  const now = new Date();
+  const t = today();
+  if (S.mr.period === '3m') return { from: `${shiftMonth(monthKey(now), -2)}-01`, to: t };
+  if (S.mr.period === 'year') return { from: `${now.getFullYear()}-01-01`, to: t };
+  if (S.mr.period === 'custom' && S.mr.from && S.mr.to) return { from: S.mr.from, to: S.mr.to };
+  return { from: `${monthKey(now)}-01`, to: t };
+}
+const monthsBetween = (from, to) => {
+  const [y1, m1] = from.split('-').map(Number);
+  const [y2, m2] = to.split('-').map(Number);
+  return Math.max(1, (y2 - y1) * 12 + (m2 - m1) + 1);
+};
+const periodLabel = ({ from, to }) => `${fmtDate(from, { day: 'numeric', month: 'short', year: 'numeric' })} – ${fmtDate(to, { day: 'numeric', month: 'short', year: 'numeric' })}`;
+
+async function viewMemberReports() {
+  if (!isGlobal()) return ($content().innerHTML = '<div class="card empty"><h3>Global admins only</h3></div>');
+  const members = await store.listMembers(S.scope);
+  const q = S.mr.q.toLowerCase();
+  const list = members.filter((m) => !q || m.full_name.toLowerCase().includes(q));
+  $content().innerHTML = `
+    <div class="page-head"><div><h1>Member reports</h1><p>${S.scope ? esc(dept().name) : 'All departments'} · pick a member to see their full record over any period</p></div>
+      <input class="input" style="width:240px" placeholder="Search members" data-input="mrQuery" value="${esc(S.mr.q)}" aria-label="Search members"></div>
+    <div class="card">${
+      list.length
+        ? `<div class="table-wrap"><table><thead><tr><th>Member</th>${S.scope ? '' : '<th>Department</th>'}<th>Status</th><th></th></tr></thead><tbody>${list
+            .map(
+              (m) => `<tr class="click" data-action="go" data-href="#/member/${m.id}"><td>${person(m)}</td>${S.scope ? '' : `<td>${esc(dept(m.department_id)?.name ?? '')}</td>`}
+              <td>${m.active ? '<span class="pill good">Active</span>' : '<span class="pill">Inactive</span>'}</td><td class="r"><span class="btn sm">${icon('reports')}Open report</span></td></tr>`
+            )
+            .join('')}</tbody></table></div>`
+        : '<div class="empty"><h3>No members found</h3></div>'
+    }</div>`;
+}
+INPUTS.mrQuery = (el, e) => {
+  if (e.type !== 'input') return;
+  S.mr.q = el.value;
+  clearTimeout(INPUTS.mrQuery.t);
+  INPUTS.mrQuery.t = setTimeout(async () => {
+    await viewMemberReports();
+    const i = document.querySelector('[data-input="mrQuery"]');
+    i.focus();
+    i.setSelectionRange(i.value.length, i.value.length);
+  }, 150);
+};
+
+// Everything the member report shows, worked out once and reused by the page, PDF and CSV.
+async function memberReportData(memberId) {
+  const all = await store.listMembers();
+  const m = all.find((x) => x.id === memberId);
+  if (!m) return null;
+  const range = periodRange();
+  const [reports, tasks] = await Promise.all([
+    store.listReports({ deptId: m.department_id, ...range }),
+    store.listTasks({ deptId: m.department_id, ...range }),
+  ]);
+  const submittedReports = reports.filter((r) => r.status === 'submitted').sort((a, b) => a.service_date.localeCompare(b.service_date));
+  const months = monthsBetween(range.from, range.to);
+  const [card] = computeScorecards([m], submittedReports, tasks, { months });
+
+  const att = { early: 0, late_perm: 0, late: 0, absent_perm: 0, absent: 0 };
+  const byMonth = new Map();
+  const timeline = [];
+  const remarks = [];
+  for (const r of submittedReports) {
+    const t = REPORT_TYPE_MAP[r.report_type];
+    if (!t) continue;
+    const mine = r.entries.filter((e) => e.member_id === m.id);
+    const row = { date: r.service_date, report: t.name, reportId: r.id, status: 'Not recorded', tone: null, details: [] };
+    for (const s of t.sections) {
+      if (s.kind === 'text') continue;
+      const e = mine.find((x) => x.section === s.key);
+      if (s.kind === 'counts') {
+        if (e && Number(e.value)) row.details.push(`${SECTION_SHORT[s.key] ?? s.title}: ${e.value}`);
+        continue;
+      }
+      const cat = e && s.categories.find((c) => c.key === e.category);
+      if (MAIN_SECTIONS.includes(s.key)) {
+        if (cat) Object.assign(row, { status: cat.label, tone: cat.tone });
+        if (cat && s.key === 'attendance') {
+          att[cat.key] += 1;
+          const mk = r.service_date.slice(0, 7);
+          if (!byMonth.has(mk)) byMonth.set(mk, { served: 0, absent: 0, early: 0 });
+          const b = byMonth.get(mk);
+          if (['early', 'late_perm', 'late'].includes(cat.key)) b.served += 1;
+          if (cat.key === 'early') b.early += 1;
+          if (cat.key === 'absent') b.absent += 1;
+        }
+      } else if (cat) {
+        const label = SECTION_SHORT[s.key] ?? s.title;
+        row.details.push(s.categories.length === 1 ? (s.key === 'contraventions' ? label : `${label} ✓`) : `${label}: ${cat.label}`);
+      } else if (s.optional && s.score && !(s.note && (r.notes?.[s.key] ?? '').trim() && !r.entries.some((x) => x.section === s.key))) {
+        row.details.push(`${SECTION_SHORT[s.key] ?? s.title} ✗`);
+      }
+      if (e?.remark) remarks.push({ date: r.service_date, report: t.name, section: SECTION_SHORT[s.key] ?? s.title, text: e.remark });
+    }
+    timeline.push(row);
+  }
+  const myTasks = tasks
+    .map((t) => ({ title: t.title, due: t.due_date, a: t.assignments.find((a) => a.member_id === m.id) }))
+    .filter((x) => x.a)
+    .sort((a, b) => a.due.localeCompare(b.due));
+  return { m, dept: dept(m.department_id), range, months, card, att, byMonth, timeline, remarks, tasks: myTasks, reportCount: submittedReports.length };
+}
+
+async function viewMemberReport(memberId) {
+  if (!isGlobal()) return ($content().innerHTML = '<div class="card empty"><h3>Global admins only</h3></div>');
+  clearCharts();
+  const d = await memberReportData(memberId);
+  if (!d) return ($content().innerHTML = '<div class="card empty"><h3>Member not found</h3></div>');
+  S.mr.data = d;
+  const { m, card, att, range } = d;
+  const st = card.stats;
+  const attTotal = Object.values(att).reduce((a, b) => a + b, 0);
+  const attRate = pct(st.served, st.served + st.absent);
+  const tile = (k, v, sub = '') => `<div class="stat"><div class="k">${k}</div><div class="v num">${v}</div>${sub ? `<div class="d">${sub}</div>` : ''}</div>`;
+
+  $content().innerHTML = `
+    <div class="page-head no-print"><div><a href="#/people" class="small">← Member reports</a><h1 style="margin-top:4px">${esc(m.full_name)}</h1>
+      <p>${esc(d.dept?.name ?? '')} · ${periodLabel(range)} · ${d.reportCount} submitted report${d.reportCount === 1 ? '' : 's'}</p></div>
+      <div class="row"><button class="btn primary" data-action="memberPdf">${icon('download')}Download PDF</button><button class="btn" data-action="memberCsv">${icon('download')}CSV</button></div></div>
+    <div class="card no-print" style="margin-bottom:16px"><div class="row">
+      <div class="seg" role="group" aria-label="Period">${PERIODS.map(([k, l]) => `<button class="${S.mr.period === k ? 'on' : ''}" data-action="mrPeriod" data-p="${k}">${l}</button>`).join('')}</div>
+      ${S.mr.period === 'custom' ? `<input type="date" class="input" style="width:auto" id="mrFrom" value="${range.from}" aria-label="From"><span class="muted">to</span><input type="date" class="input" style="width:auto" id="mrTo" value="${range.to}" aria-label="To"><button class="btn sm" data-action="mrApply">Apply</button>` : ''}
+    </div></div>
+    <div class="stats">
+      ${tile('Overall score', card.overall != null ? card.overall + '%' : '—', `${card.earned} / ${card.possible} points`)}
+      ${tile('Service attendance', attRate != null ? attRate + '%' : '—', `${st.served} attended · ${st.absent} absent without permission`)}
+      ${tile('Arrived early', att.early, `${st.late} late · ${att.absent_perm} excused`)}
+      ${tile('Prayers attended', st.prayer, st.prayer_missed ? `${st.prayer_missed} missed` : '')}
+      ${tile('Evangelism', st.evangelism, 'outings joined')}
+      ${tile('Souls / guests', st.souls)}
+      ${tile('Tasks submitted', `${st.tasks_done}/${st.tasks_total}`)}
+      ${tile('Contraventions', st.contravention)}
+    </div>
+    <div class="dash-grid">
+      <div class="card"><div class="card-head"><div><h2>Attendance breakdown</h2><p>Every service report in the period</p></div></div>
+        ${
+          attTotal
+            ? `<div class="stackbar" role="img" aria-label="Attendance breakdown">${Object.keys(CAT_COLORS).filter((k) => att[k]).map((k) => `<i style="flex:${att[k]};background:${CAT_COLORS[k]}" title="${CAT_LABELS[k]}: ${att[k]}"></i>`).join('')}</div>
+               <table style="margin-top:12px"><tbody>${Object.keys(CAT_COLORS).map((k) => `<tr><td><span class="row" style="gap:8px"><i class="dot" style="background:${CAT_COLORS[k]}"></i>${CAT_LABELS[k]}</span></td><td class="r num"><b>${att[k]}</b></td><td class="r num muted">${pct(att[k], attTotal)}%</td></tr>`).join('')}</tbody></table>`
+            : '<div class="empty">No service attendance recorded in this period.</div>'
+        }</div>
+      <div class="card"><div class="card-head"><div><h2>Scorecard</h2><p>Points earned in this period</p></div></div>
+        <table><tbody>${PILLARS.map((p) => {
+          const v = card.pillars[p.key];
+          return `<tr><td><span class="row" style="gap:8px"><i class="dot" style="background:${p.color}"></i>${p.label}</span></td><td style="width:45%"><div class="bar-cell"><div class="mini-bar"><i style="width:${v.pct ?? 0}%;background:${p.color}"></i></div></div></td><td class="r num">${v.points ?? '—'} / ${p.points}</td></tr>`;
+        }).join('')}</tbody></table></div>
+      ${
+        d.byMonth.size > 1
+          ? `<div class="card wide"><div class="card-head"><div><h2>Attendance by month</h2><p>Share of services attended (absent with permission not counted)</p></div></div><div class="chart-box short"><canvas id="cMember" role="img" aria-label="Attendance by month"></canvas></div></div>`
+          : ''
+      }
+      <div class="card wide"><div class="card-head"><div><h2>Service by service</h2><p>What was recorded for ${esc(m.full_name.split(' ')[0])} on each submitted report</p></div></div>
+        ${
+          d.timeline.length
+            ? `<div class="table-wrap"><table><thead><tr><th>Date</th><th>Report</th><th>Status</th><th>Other records</th></tr></thead><tbody>${d.timeline
+                .slice()
+                .reverse()
+                .map(
+                  (r) => `<tr class="click" data-action="go" data-href="#/report/${r.reportId}"><td class="num" style="white-space:nowrap">${fmtDate(r.date, { weekday: 'short', day: 'numeric', month: 'short' })}</td><td>${esc(r.report)}</td>
+                  <td>${r.tone ? `<span class="row" style="gap:7px;flex-wrap:nowrap"><i class="dot" style="background:var(--t-${r.tone})"></i>${esc(r.status)}</span>` : `<span class="muted">${esc(r.status)}</span>`}</td>
+                  <td class="small">${r.details.map(esc).join(' · ') || '<span class="muted">—</span>'}</td></tr>`
+                )
+                .join('')}</tbody></table></div>`
+            : '<div class="empty">No submitted reports in this period.</div>'
+        }</div>
+      <div class="card"><div class="card-head"><div><h2>Tasks</h2><p>${st.tasks_done} of ${st.tasks_total} submitted</p></div></div>
+        ${d.tasks.length ? `<table><tbody>${d.tasks.map((t) => `<tr><td>${esc(t.title)}<div class="small muted">Due ${fmtDate(t.due, { day: 'numeric', month: 'short' })}</div></td><td class="r">${t.a.done ? '<span class="pill good">Submitted</span>' : '<span class="pill bad">Not submitted</span>'}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">No tasks in this period.</div>'}</div>
+      <div class="card"><div class="card-head"><div><h2>Remarks</h2><p>Notes written against ${esc(m.full_name.split(' ')[0])}'s name</p></div></div>
+        ${d.remarks.length ? `<table><tbody>${d.remarks.map((r) => `<tr><td class="small num" style="white-space:nowrap">${fmtDate(r.date, { day: 'numeric', month: 'short' })}</td><td><div class="small muted">${esc(r.report)} · ${esc(r.section)}</div>${esc(r.text)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">No remarks in this period.</div>'}</div>
+    </div>`;
+
+  if (d.byMonth.size > 1) {
+    const keys = [...d.byMonth.keys()].sort();
+    chart('cMember', {
+      type: 'line',
+      data: {
+        labels: keys.map((k) => monthLabel(k).replace(/ \d{4}$/, '')),
+        datasets: [{ label: 'Attendance', data: keys.map((k) => { const b = d.byMonth.get(k); return pct(b.served, b.served + b.absent) ?? 0; }), borderColor: '#521a7a', backgroundColor: '#521a7a', borderWidth: 2, pointRadius: 4, tension: 0 }],
+      },
+      options: { ...CHART_BASE, plugins: { ...CHART_BASE.plugins, tooltip: { ...CHART_BASE.plugins.tooltip, callbacks: { label: (c) => ` Attendance: ${c.raw}%` } } }, scales: { x: axis({ grid: { display: false } }), y: axis({ min: 0, max: 100, ticks: { callback: (v) => v + '%', color: '#8a8492' } }) } },
+    });
+  }
+}
+
+ACTIONS.mrPeriod = (el) => {
+  S.mr.period = el.dataset.p;
+  if (S.mr.period === 'custom' && !S.mr.from) Object.assign(S.mr, { from: `${monthKey()}-01`, to: today() });
+  route();
+};
+ACTIONS.mrApply = () => {
+  const from = document.getElementById('mrFrom').value;
+  const to = document.getElementById('mrTo').value;
+  if (!from || !to || from > to) return toast('Pick a start date before the end date', true);
+  Object.assign(S.mr, { from, to });
+  route();
+};
+
+ACTIONS.memberCsv = () => {
+  const d = S.mr.data;
+  const rows = [['Member', d.m.full_name], ['Department', d.dept?.name ?? ''], ['Period', periodLabel(d.range)], ['Overall score %', d.card.overall ?? ''], []];
+  rows.push(['Date', 'Report', 'Status', 'Other records']);
+  d.timeline.forEach((r) => rows.push([r.date, r.report, r.status, r.details.join('; ')]));
+  rows.push([], ['Task', 'Due', 'Submitted']);
+  d.tasks.forEach((t) => rows.push([t.title, t.due, t.a.done ? 'Yes' : 'No']));
+  rows.push([], ['Date', 'Report', 'Section', 'Remark']);
+  d.remarks.forEach((r) => rows.push([r.date, r.report, r.section, r.text]));
+  downloadFile(`${d.m.full_name} - member report - ${d.range.from} to ${d.range.to}.csv`, toCsv(rows));
+};
+
+ACTIONS.memberPdf = async (el) => {
+  el.disabled = true;
+  try {
+    const d = S.mr.data;
+    const [JsPDF, logo] = await Promise.all([loadJsPdf(), imageData('assets/coza-logo-dark.png')]);
+    const pdf = new JsPDF({ unit: 'mm', format: 'a4' });
+    const W = 210, H = 297, M = 16;
+    const PURPLE = [58, 18, 87], INK = [23, 18, 28], MUTED = [120, 112, 130];
+    let y = M;
+    const room = (h) => {
+      if (y + h > H - 18) {
+        pdf.addPage();
+        y = M;
+      }
+    };
+    const heading = (t) => {
+      room(14);
+      pdf.setFont('helvetica', 'bold').setFontSize(11).setTextColor(...PURPLE).text(pdfSafe(t.toUpperCase()), M, y);
+      pdf.setDrawColor(230, 225, 236).setLineWidth(0.3).line(M, y + 1.8, W - M, y + 1.8);
+      y += 7;
+    };
+
+    if (logo) pdf.addImage(logo, 'PNG', M, y, 20, 20, 'logo', 'FAST');
+    pdf.setFont('helvetica', 'bold').setFontSize(9).setTextColor(232, 51, 111).text('MEMBER REPORT', M + 25, y + 4);
+    pdf.setFontSize(16).setTextColor(...PURPLE).text(pdfSafe(d.m.full_name.toUpperCase()), M + 25, y + 11);
+    pdf.setFont('helvetica', 'normal').setFontSize(10).setTextColor(...INK).text(pdfSafe(`${CHURCH_NAME} ${d.dept?.name ?? ''}  |  ${periodLabel(d.range)}`), M + 25, y + 17);
+    y += 24;
+    pdf.setDrawColor(...PURPLE).setLineWidth(0.8).line(M, y, W - M, y);
+    y += 9;
+
+    const st = d.card.stats;
+    const kv = [
+      ['Overall score', d.card.overall != null ? `${d.card.overall}%  (${d.card.earned} / ${d.card.possible} pts)` : '-'],
+      ['Service attendance', `${pct(st.served, st.served + st.absent) ?? '-'}%  (${st.served} attended)`],
+      ['Arrived early', String(d.att.early)],
+      ['Times late', String(st.late)],
+      ['Absent without permission', String(st.absent)],
+      ['Absent with permission', String(d.att.absent_perm)],
+      ['Prayers attended', String(st.prayer)],
+      ['Evangelism outings', String(st.evangelism)],
+      ['Souls / guests', String(st.souls)],
+      ['Tasks submitted', `${st.tasks_done} / ${st.tasks_total}`],
+      ['Contraventions', String(st.contravention)],
+      ['Submitted reports', String(d.reportCount)],
+    ];
+    heading('Summary');
+    const colW = (W - 2 * M) / 2;
+    kv.forEach(([k, v], i) => {
+      const x = M + (i % 2) * colW;
+      if (i % 2 === 0 && i) y += 6;
+      pdf.setFont('helvetica', 'normal').setFontSize(9.5).setTextColor(...MUTED).text(pdfSafe(k), x, y);
+      pdf.setFont('helvetica', 'bold').setTextColor(...INK).text(pdfSafe(v), x + colW - 6, y, { align: 'right' });
+    });
+    y += 11;
+
+    heading('Scorecard');
+    PILLARS.forEach((p) => {
+      const v = d.card.pillars[p.key];
+      room(7);
+      pdf.setFont('helvetica', 'normal').setFontSize(9.5).setTextColor(...INK).text(p.label, M, y);
+      pdf.setFillColor(236, 233, 240).roundedRect(M + 40, y - 3, 100, 3.6, 1.5, 1.5, 'F');
+      if (v.pct) {
+        const [r, g, b] = p.color.match(/\w\w/g).map((h) => parseInt(h, 16));
+        pdf.setFillColor(r, g, b).roundedRect(M + 40, y - 3, Math.max(2, v.pct), 3.6, 1.5, 1.5, 'F');
+      }
+      pdf.setFont('helvetica', 'bold').text(`${v.points ?? '-'} / ${p.points}`, W - M, y, { align: 'right' });
+      y += 6.5;
+    });
+    y += 4;
+
+    heading('Service by service');
+    const cols = [M, M + 26, M + 72, M + 118];
+    pdf.setFont('helvetica', 'bold').setFontSize(8.5).setTextColor(...MUTED);
+    ['DATE', 'REPORT', 'STATUS', 'OTHER RECORDS'].forEach((h, i) => pdf.text(h, cols[i], y));
+    y += 5;
+    pdf.setFont('helvetica', 'normal').setFontSize(9).setTextColor(...INK);
+    if (!d.timeline.length) (pdf.setTextColor(...MUTED).text('No submitted reports in this period.', M, y), (y += 6));
+    d.timeline.forEach((r) => {
+      const status = pdf.splitTextToSize(pdfSafe(r.status), 44);
+      const det = pdf.splitTextToSize(pdfSafe(r.details.join(' · ').replace(/✓/g, '(yes)').replace(/✗/g, '(no)') || '-'), W - M - cols[3]);
+      const h = Math.max(status.length, det.length) * 4.3 + 1.6;
+      room(h);
+      pdf.setTextColor(...INK).text(fmtDate(r.date, { day: '2-digit', month: 'short', year: '2-digit' }), cols[0], y);
+      pdf.text(pdfSafe(r.report), cols[1], y);
+      pdf.text(status, cols[2], y);
+      pdf.setTextColor(...MUTED).text(det, cols[3], y);
+      y += h;
+      pdf.setDrawColor(240, 237, 244).setLineWidth(0.2).line(M, y - 3.2, W - M, y - 3.2);
+    });
+    y += 4;
+
+    heading('Tasks');
+    if (!d.tasks.length) (pdf.setFont('helvetica', 'normal').setFontSize(9.5).setTextColor(...MUTED).text('No tasks in this period.', M, y), (y += 6));
+    d.tasks.forEach((t) => {
+      room(6);
+      pdf.setFont('helvetica', 'normal').setFontSize(9.5).setTextColor(...INK).text(pdfSafe(`${t.title}  (due ${fmtDate(t.due, { day: 'numeric', month: 'short' })})`), M, y);
+      pdf.setFont('helvetica', 'bold').setTextColor(...(t.a.done ? [15, 138, 60] : [198, 47, 58])).text(t.a.done ? 'Submitted' : 'Not submitted', W - M, y, { align: 'right' });
+      y += 6;
+    });
+    y += 4;
+
+    if (d.remarks.length) {
+      heading('Remarks');
+      d.remarks.forEach((r) => {
+        const lines = pdf.splitTextToSize(pdfSafe(`${fmtDate(r.date, { day: 'numeric', month: 'short' })} - ${r.report}, ${r.section}: ${r.text}`), W - 2 * M);
+        room(lines.length * 4.5 + 1);
+        pdf.setFont('helvetica', 'normal').setFontSize(9.5).setTextColor(...INK).text(lines, M, y);
+        y += lines.length * 4.5 + 1.5;
+      });
+    }
+
+    const pages = pdf.getNumberOfPages();
+    for (let p = 1; p <= pages; p++) {
+      pdf.setPage(p);
+      pdf.setFont('helvetica', 'normal').setFontSize(8).setTextColor(...MUTED);
+      pdf.text(pdfSafe(`${CHURCH_NAME} Department Reports - member report - ${d.m.full_name}`), M, H - 9);
+      pdf.text(`Page ${p} of ${pages}`, W - M, H - 9, { align: 'right' });
+    }
+    const name = pdfSafe(`${d.m.full_name} - member report - ${d.range.from} to ${d.range.to}.pdf`).replace(/[\\/:*?"<>|]/g, '');
+    const blob = pdf.output('blob');
+    const file = window.File && new File([blob], name, { type: 'application/pdf' });
+    if (file && navigator.canShare?.({ files: [file] }) && matchMedia('(max-width: 820px)').matches) {
+      try {
+        await navigator.share({ files: [file], title: name.replace(/\.pdf$/, '') });
+        return;
+      } catch (e) {
+        if (e.name === 'AbortError') return;
+      }
+    }
+    downloadFile(name, blob, 'application/pdf');
+    toast('PDF downloaded');
+  } finally {
+    el.disabled = false;
+  }
+};
 
 // ─── Admin (global only) ───────────────────────────────────────────────────
 

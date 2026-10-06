@@ -1,11 +1,13 @@
 // Turns a month of reports + tasks into per-member scorecards and
 // department-level stats. All rules come from the `score`/`stat` fields in
 // templates.js, so changing a template changes the scoring with it.
-import { REPORT_TYPE_MAP, PILLARS, SOULS_MONTHLY_TARGET } from './templates.js?v=202610062106';
+import { REPORT_TYPE_MAP, PILLARS, SOULS_MONTHLY_TARGET } from './templates.js?v=202610062225';
 
 const emptyStats = () => ({ souls: 0, late: 0, absent: 0, excused: 0, served: 0, prayer: 0, prayer_missed: 0, evangelism: 0, contravention: 0, post: 0, tasks_done: 0, tasks_total: 0 });
 
-export function computeScorecards(members, reports, tasks) {
+// opts.months: how many months the reports cover, so the souls target scales with the period.
+export function computeScorecards(members, reports, tasks, opts = {}) {
+  const soulsTarget = SOULS_MONTHLY_TARGET * (opts.months ?? 1);
   const cards = new Map(
     members.map((m) => [m.id, { member: m, stats: emptyStats(), sums: Object.fromEntries(PILLARS.map((p) => [p.key, { got: 0, n: 0 }])) }])
   );
@@ -55,7 +57,7 @@ export function computeScorecards(members, reports, tasks) {
     let possible = 0;
     for (const p of PILLARS) {
       let ratio = null;
-      if (p.key === 'souls') ratio = soulsTracked ? Math.min(1, c.stats.souls / SOULS_MONTHLY_TARGET) : null;
+      if (p.key === 'souls') ratio = soulsTracked ? Math.min(1, c.stats.souls / soulsTarget) : null;
       else if (p.key === 'goals') ratio = c.stats.tasks_total ? c.stats.tasks_done / c.stats.tasks_total : null;
       else if (c.sums[p.key].n) ratio = c.sums[p.key].got / c.sums[p.key].n;
       const points = ratio == null ? null : +(ratio * p.points).toFixed(2);
