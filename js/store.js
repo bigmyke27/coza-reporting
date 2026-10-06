@@ -1,9 +1,9 @@
 // Data layer. Two interchangeable backends with the same methods:
 //   SupabaseStore — the live database (when js/config.js has keys)
 //   DemoStore     — sample data kept in this browser's localStorage
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js?v=202610061255';
-import { ALL_REPORT_TYPE_KEYS, REPORT_TYPE_MAP } from './templates.js?v=202610061255';
-import { isoDate, addDays } from './util.js?v=202610061255';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js?v=202610061256';
+import { ALL_REPORT_TYPE_KEYS, REPORT_TYPE_MAP } from './templates.js?v=202610061256';
+import { isoDate, addDays } from './util.js?v=202610061256';
 
 export const IS_DEMO = !SUPABASE_URL || !SUPABASE_ANON_KEY;
 

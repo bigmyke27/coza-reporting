@@ -1,8 +1,8 @@
-import { store, IS_DEMO } from './store.js?v=202610061255';
-import { CHURCH_NAME, APP_NAME } from './config.js?v=202610061255';
-import { REPORT_TYPES, REPORT_TYPE_MAP, ALL_REPORT_TYPE_KEYS, PILLARS, SOULS_MONTHLY_TARGET } from './templates.js?v=202610061255';
-import { computeScorecards, attendanceByReport } from './scoring.js?v=202610061255';
-import { esc, initials, fmtDate, lastWeekday, monthKey, monthRange, shiftMonth, monthLabel, pct, today, downloadFile, toCsv, parseDate } from './util.js?v=202610061255';
+import { store, IS_DEMO } from './store.js?v=202610061256';
+import { CHURCH_NAME, APP_NAME } from './config.js?v=202610061256';
+import { REPORT_TYPES, REPORT_TYPE_MAP, ALL_REPORT_TYPE_KEYS, PILLARS, SOULS_MONTHLY_TARGET } from './templates.js?v=202610061256';
+import { computeScorecards, attendanceByReport } from './scoring.js?v=202610061256';
+import { esc, initials, fmtDate, lastWeekday, monthKey, monthRange, shiftMonth, monthLabel, pct, today, downloadFile, toCsv, parseDate } from './util.js?v=202610061256';
 
 // ─── State ─────────────────────────────────────────────────────────────────
 
